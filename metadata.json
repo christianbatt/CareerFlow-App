@@ -1,0 +1,6 @@
+{
+  "name": "CareerFlow AI - Job Application Tracker & Career OS",
+  "description": "Bacheca Kanban agile, parsing automatico delle offerte con AI, generatore di cover letter, simulatore di colloqui e statistiche avanzate.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
