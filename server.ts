@@ -1001,7 +1001,26 @@ app.post("/api/auto-apply-copilot", async (req, res) => {
     const role = application?.title || "Ruolo";
     const candidateName = userProfile?.name || "Candidato";
     const candidateTitle = userProfile?.title || "";
-    const targetLang = lang === "fr" ? "French" : lang === "en" ? "English" : "Italian";
+
+    // Automatic Language Detection Service based on job description & title
+    const jobTextSample = `${application?.title || ""} ${application?.jobDescription || ""}`.toLowerCase();
+    let detectedLang = lang || "it";
+
+    const englishKeywords = ["we are looking", "seeking", "requirements", "responsibilities", "experience with", "remote", "position", "team", "about us", "role description"];
+    const frenchKeywords = ["nous recherchons", "poste", "profil recherché", "expérience", "compétences", "entreprise", "candidat", "mission"];
+    
+    let enScore = englishKeywords.filter(kw => jobTextSample.includes(kw)).length;
+    let frScore = frenchKeywords.filter(kw => jobTextSample.includes(kw)).length;
+
+    if (enScore > frScore && enScore >= 1) {
+      detectedLang = "en";
+    } else if (frScore > enScore && frScore >= 1) {
+      detectedLang = "fr";
+    } else if (application?.location?.toLowerCase().includes("monaco") || application?.location?.toLowerCase().includes("monte carlo")) {
+      detectedLang = "fr"; // default standard for Monaco if unclear
+    }
+
+    const targetLang = detectedLang === "fr" ? "French (Français)" : detectedLang === "en" ? "English" : "Italian (Italiano)";
 
     const prompt = `Sei un esperto Senior Career Coach e Specialista ATS per candidature di lavoro.
 Il tuo compito è generare un kit completo ad altissima conversione per la candidatura istantanea (Auto-Apply Copilot) a questa offerta.
