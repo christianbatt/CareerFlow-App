@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   UserCheck,
   FileText,
@@ -25,10 +25,14 @@ import {
   Lightbulb,
   Loader2,
   FileUp,
+  Languages,
+  Palette,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { parseDocumentFile, getFileFormatMeta } from "../utils/documentParser";
 import { UserProfile, CoverLetterTemplate, JobApplication, CvTailoringResult, SavedDocument } from "../types";
+import { ResumePaper } from "./ResumePaper";
+import { exportElementToPdf } from "../utils/pdfGenerator";
 
 export const DocumentsVault: React.FC = () => {
   const {
@@ -95,6 +99,12 @@ ${userProfile.achievements}` : ""}`
   const [copiedPitchSuccess, setCopiedPitchSuccess] = useState<boolean>(false);
   const [savedVaultSuccess, setSavedVaultSuccess] = useState<boolean>(false);
   const [skillsSyncedSuccess, setSkillsSyncedSuccess] = useState<boolean>(false);
+
+  // New multi-language & executive PDF styling states
+  const [targetLanguage, setTargetLanguage] = useState<"auto" | "it" | "en" | "fr">("auto");
+  const [resumeTheme, setResumeTheme] = useState<"harvard" | "executive" | "modern">("executive");
+  const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
+  const resumePaperRef = useRef<HTMLDivElement>(null);
 
   // --- PROFILE FORM STATE ---
   const [profileForm, setProfileForm] = useState<UserProfile>(userProfile);
@@ -220,7 +230,7 @@ ${userProfile.achievements}` : ""}`
           application: currentJobApp,
           userProfile,
           optimizationGoal,
-          lang: language,
+          lang: targetLanguage,
         }),
       });
 
@@ -238,6 +248,35 @@ ${userProfile.achievements}` : ""}`
       );
     } finally {
       setTailoringLoading(false);
+    }
+  };
+
+  // Download Formatted Executive A4 PDF directly
+  const handleExportPdf = async () => {
+    if (!resumePaperRef.current || !currentJobApp) {
+      return;
+    }
+    setIsExportingPdf(true);
+    try {
+      const effectiveLang =
+        targetLanguage === "auto"
+          ? tailoredResult?.detectedLanguage || "it"
+          : targetLanguage;
+
+      const success = await exportElementToPdf(resumePaperRef.current, {
+        candidateName: userProfile.name || "Candidato",
+        company: currentJobApp.company || "Azienda",
+        role: currentJobApp.title || "Ruolo",
+        lang: effectiveLang,
+      });
+
+      if (success) {
+        // PDF downloaded successfully
+      }
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+    } finally {
+      setIsExportingPdf(false);
     }
   };
 
@@ -572,6 +611,39 @@ ${userProfile.achievements}` : ""}`
                   className="w-full p-3 text-xs font-mono bg-stone-50 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 leading-relaxed resize-y"
                 />
 
+                {/* Target Language Selection */}
+                <div className="space-y-1.5 pt-2 border-t border-stone-100 dark:border-stone-800">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-stone-700 dark:text-stone-300 flex items-center gap-1.5">
+                      <Languages className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>Lingua del CV Adattato</span>
+                    </label>
+                    <span className="text-[10px] text-stone-400 font-medium">Standard Internazionale ATS</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1.5 text-xs">
+                    {[
+                      { id: "auto", label: "⚡ Auto (Rileva)", desc: "Dall'annuncio" },
+                      { id: "it", label: "🇮🇹 Italiano", desc: "Formato Italia" },
+                      { id: "en", label: "🇬🇧 English", desc: "US/UK Exec" },
+                      { id: "fr", label: "🇫🇷 Français", desc: "Cadre Standard" },
+                    ].map((l) => (
+                      <button
+                        key={l.id}
+                        type="button"
+                        onClick={() => setTargetLanguage(l.id as any)}
+                        className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                          targetLanguage === l.id
+                            ? "border-indigo-600 bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold shadow-2xs"
+                            : "border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800/60 text-stone-700 dark:text-stone-300 font-medium"
+                        }`}
+                      >
+                        <div className="text-[11px] font-semibold">{l.label}</div>
+                        <div className="text-[9px] text-stone-400">{l.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Step 3: Strategy Options */}
                 <div className="space-y-2 pt-2 border-t border-stone-100 dark:border-stone-800">
                   <label className="block text-[11px] font-bold text-stone-700 dark:text-stone-300">
@@ -866,11 +938,27 @@ ${userProfile.achievements}` : ""}`
                       </div>
 
                       {/* Quick Action Buttons */}
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {resultTab === "preview" && (
+                          <div className="flex items-center gap-1 text-[11px] text-stone-600 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 px-2 py-1 rounded-lg border border-stone-200/80 dark:border-stone-700">
+                            <Palette className="w-3.5 h-3.5 text-indigo-500" />
+                            <select
+                              aria-label="Stile Tipografico CV"
+                              value={resumeTheme}
+                              onChange={(e) => setResumeTheme(e.target.value as any)}
+                              className="bg-transparent font-semibold focus:outline-none cursor-pointer"
+                            >
+                              <option value="executive">Modern Executive</option>
+                              <option value="harvard">Harvard Classic (Serif)</option>
+                              <option value="modern">Tech Leadership</option>
+                            </select>
+                          </div>
+                        )}
+
                         <button
                           type="button"
                           onClick={handleCopyTailoredCv}
-                          className="px-2.5 py-1.5 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
+                          className="px-2.5 py-1.5 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer"
                           title="Copia CV"
                         >
                           {copiedCvSuccess ? (
@@ -884,101 +972,88 @@ ${userProfile.achievements}` : ""}`
                         <button
                           type="button"
                           onClick={handleDownloadMarkdown}
-                          className="px-2.5 py-1.5 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
+                          className="px-2.5 py-1.5 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer"
                           title="Scarica .md"
                         >
                           <Download className="w-3.5 h-3.5" />
                           <span>.md</span>
                         </button>
 
+                        {/* Direct High-Resolution Executive PDF Download */}
+                        <button
+                          type="button"
+                          onClick={handleExportPdf}
+                          disabled={isExportingPdf}
+                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                          title="Scarica PDF Formattato A4"
+                        >
+                          {isExportingPdf ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Download className="w-3.5 h-3.5" />
+                          )}
+                          <span>{isExportingPdf ? "Generazione..." : "Scarica PDF"}</span>
+                        </button>
+
                         <button
                           type="button"
                           onClick={handlePrint}
-                          className="px-2.5 py-1.5 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 rounded-lg text-xs font-semibold transition-all flex items-center gap-1"
-                          title="Stampa o Salva PDF"
+                          className="px-2.5 py-1.5 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer"
+                          title="Stampa con browser"
                         >
                           <Printer className="w-3.5 h-3.5" />
-                          <span>PDF</span>
+                          <span>Stampa</span>
                         </button>
 
                         <button
                           type="button"
                           onClick={handleSaveToVault}
-                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-all flex items-center gap-1 shadow-2xs"
+                          className="px-3 py-1.5 bg-stone-900 dark:bg-stone-100 hover:bg-stone-800 dark:hover:bg-white text-white dark:text-stone-900 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
                         >
                           {savedVaultSuccess ? (
                             <>
-                              <Check className="w-3.5 h-3.5" />
+                              <Check className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600" />
                               <span>Salvato!</span>
                             </>
                           ) : (
                             <>
                               <Save className="w-3.5 h-3.5" />
-                              <span>Salva nel Vault</span>
+                              <span>Salva Vault</span>
                             </>
                           )}
                         </button>
                       </div>
                     </div>
 
-                    {/* Tab 1: Rendered Formatted Preview */}
+                    {/* Tab 1: Rendered Formatted Executive Resume Preview */}
                     {resultTab === "preview" && (
-                      <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed space-y-3 font-serif p-4 bg-stone-50/50 dark:bg-stone-800/30 rounded-xl border border-stone-100 dark:border-stone-800 max-h-[600px] overflow-y-auto">
-                        {tailoredResult.tailoredCvMarkdown
-                          .split("\n\n")
-                          .map((paragraph, index) => {
-                            if (paragraph.startsWith("# ")) {
-                              return (
-                                <h1
-                                  key={index}
-                                  className="text-lg font-bold font-sans text-stone-900 dark:text-white border-b border-stone-200 pb-1"
-                                >
-                                  {paragraph.replace("# ", "")}
-                                </h1>
-                              );
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between text-xs text-stone-500 px-1">
+                          <span>
+                            Documento formattato A4 pronto per l'invio · Lingua:{" "}
+                            <strong className="text-stone-800 dark:text-stone-200 uppercase">
+                              {tailoredResult.detectedLanguage || targetLanguage}
+                            </strong>
+                          </span>
+                          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                            Compatibilità ATS: {tailoredResult.atsMatchScoreAfter || 95}%
+                          </span>
+                        </div>
+                        <div className="overflow-x-auto p-4 bg-stone-100/70 dark:bg-stone-950/40 rounded-xl border border-stone-200 dark:border-stone-800 max-h-[750px] overflow-y-auto">
+                          <ResumePaper
+                            paperRef={resumePaperRef}
+                            tailoredResult={tailoredResult}
+                            userProfile={userProfile}
+                            targetCompany={currentJobApp?.company}
+                            targetRole={currentJobApp?.title}
+                            lang={
+                              targetLanguage === "auto"
+                                ? tailoredResult.detectedLanguage || "it"
+                                : targetLanguage
                             }
-                            if (paragraph.startsWith("## ")) {
-                              return (
-                                <h2
-                                  key={index}
-                                  className="text-sm font-semibold font-sans text-indigo-700 dark:text-indigo-400 mt-3 border-b border-stone-200/50 pb-0.5"
-                                >
-                                  {paragraph.replace("## ", "")}
-                                </h2>
-                              );
-                            }
-                            if (paragraph.startsWith("### ")) {
-                              return (
-                                <h3
-                                  key={index}
-                                  className="text-xs font-bold font-sans text-stone-800 dark:text-stone-200 mt-2"
-                                >
-                                  {paragraph.replace("### ", "")}
-                                </h3>
-                              );
-                            }
-                            if (paragraph.startsWith("- ")) {
-                              const items = paragraph.split("\n");
-                              return (
-                                <ul
-                                  key={index}
-                                  className="list-disc list-inside space-y-1 my-2"
-                                >
-                                  {items.map((item, i) => (
-                                    <li key={i}>{item.replace("- ", "")}</li>
-                                  ))}
-                                </ul>
-                              );
-                            }
-                            return (
-                              <p
-                                key={index}
-                                className="text-stone-700 dark:text-stone-300 leading-normal"
-                              >
-                                {paragraph}
-                              </p>
-                            );
-                          })}
+                            theme={resumeTheme}
+                          />
+                        </div>
                       </div>
                     )}
 

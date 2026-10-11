@@ -123,6 +123,35 @@ export interface ParsedDocumentResult {
   };
 }
 
+export interface CvStructuredSection {
+  header: {
+    fullName: string;
+    professionalTitle: string;
+    email?: string;
+    phone?: string;
+    location?: string;
+    linkedin?: string;
+    portfolio?: string;
+  };
+  summary: string;
+  competencies: { category: string; skills: string[] }[];
+  experiences: {
+    role: string;
+    company: string;
+    location?: string;
+    period: string;
+    achievements: string[];
+  }[];
+  education: {
+    degree: string;
+    institution: string;
+    year?: string;
+    details?: string;
+  }[];
+  languages?: { language: string; proficiency: string }[];
+  certifications?: string[];
+}
+
 export interface CvTailoringResult {
   atsMatchScoreBefore: number;
   atsMatchScoreAfter: number;
@@ -135,6 +164,8 @@ export interface CvTailoringResult {
   }[];
   executiveSummaryPitch: string;
   tailoredCvMarkdown: string;
+  structuredCv?: CvStructuredSection;
+  detectedLanguage?: "it" | "en" | "fr";
 }
 
 export interface MockInterviewTurn {

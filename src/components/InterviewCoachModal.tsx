@@ -34,8 +34,23 @@ export const InterviewCoachModal: React.FC = () => {
     useApp();
 
   const [activeTab, setActiveTab] = useState<
-    "profiler" | "culture" | "simulator" | "negotiation"
+    "profiler" | "culture" | "simulator" | "negotiation" | "reverse_interview"
   >("profiler");
+
+  // Reverse Job Interviewer state (strategic questions to ask the interviewer)
+  const [reverseQuestionsLoading, setReverseQuestionsLoading] = useState(false);
+  const [reverseLang, setReverseLang] = useState<"it" | "en" | "fr">("it");
+  const [reverseQuestionsData, setReverseQuestionsData] = useState<{
+    questions: {
+      category: string;
+      question: string;
+      whyItEstablishesSeniority: string;
+      whatToListenFor: string;
+      riskSignalsToSpot: string;
+    }[];
+    closingAdvice: string;
+  } | null>(null);
+  const [copiedQuestionIndex, setCopiedQuestionIndex] = useState<number | null>(null);
 
   // Company Culture Profiler state
   const [profilerLoading, setProfilerLoading] = useState(false);
@@ -133,7 +148,48 @@ export const InterviewCoachModal: React.FC = () => {
     }
   }, [activeTab, selectedApplication]);
 
+  // Lazy-load Reverse Interview questions when switching to reverse_interview tab
+  useEffect(() => {
+    if (
+      activeTab === "reverse_interview" &&
+      selectedApplication &&
+      !reverseQuestionsData &&
+      !reverseQuestionsLoading
+    ) {
+      loadReverseQuestions();
+    }
+  }, [activeTab, selectedApplication]);
+
   if (activeModal !== "interviewCoach" || !selectedApplication) return null;
+
+  const loadReverseQuestions = async (langOverride?: "it" | "en" | "fr") => {
+    if (!selectedApplication) return;
+    const targetLang = langOverride || reverseLang;
+    setReverseQuestionsLoading(true);
+    try {
+      const res = await fetch("/api/interview/reverse-questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company: selectedApplication.company,
+          role: selectedApplication.title,
+          jobDescription: selectedApplication.jobDescription,
+          requiredSkills: selectedApplication.requiredSkills,
+          lang: targetLang,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setReverseQuestionsData(data);
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Impossibile caricare le domande al datore.", "error");
+    } finally {
+      setReverseQuestionsLoading(false);
+    }
+  };
 
   const loadProfilerData = async () => {
     setProfilerLoading(true);
@@ -422,6 +478,18 @@ export const InterviewCoachModal: React.FC = () => {
           >
             <Coins className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
             <span>{t.tabSalary}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("reverse_interview")}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${
+              activeTab === "reverse_interview"
+                ? "bg-white dark:bg-stone-800 text-purple-700 dark:text-purple-300 shadow-xs ring-1 ring-purple-200 dark:ring-purple-800"
+                : "text-stone-600 dark:text-stone-400 hover:text-stone-900"
+            }`}
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+            <span>Domande al Datore</span>
           </button>
         </div>
 
@@ -1091,6 +1159,167 @@ export const InterviewCoachModal: React.FC = () => {
                           <li key={idx}>{flag}</li>
                         ))}
                       </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 4: REVERSE JOB INTERVIEWER (QUESTIONS TO ASK THE EMPLOYER) */}
+          {activeTab === "reverse_interview" && (
+            <div className="space-y-6">
+              {/* Header & Language Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-gradient-to-r from-purple-50/80 via-white to-indigo-50/60 dark:from-purple-950/40 dark:via-stone-900 dark:to-indigo-950/40 border border-purple-100 dark:border-purple-900/60 rounded-2xl">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
+                      <HelpCircle className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                      <span>Domande Strategiche per l'Intervistatore (Reverse Interview)</span>
+                    </h3>
+                    <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-300">
+                      Senior Impact
+                    </span>
+                  </div>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    Porre queste domande a fine colloquio dimostra leadership immediata e ti aiuta a valutare se {selectedApplication.company} è davvero l'azienda giusta per te.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 self-start sm:self-center">
+                  {/* Language switch */}
+                  <div className="flex items-center gap-1 bg-white dark:bg-stone-800 p-1 rounded-xl border border-stone-200 dark:border-stone-700 text-xs">
+                    {(["it", "en", "fr"] as const).map((l) => (
+                      <button
+                        key={l}
+                        type="button"
+                        onClick={() => {
+                          setReverseLang(l);
+                          loadReverseQuestions(l);
+                        }}
+                        className={`px-2 py-1 rounded-lg font-semibold transition-all ${
+                          reverseLang === l
+                            ? "bg-purple-600 text-white shadow-2xs"
+                            : "text-stone-600 dark:text-stone-400 hover:text-stone-900"
+                        }`}
+                      >
+                        {l === "it" ? "🇮🇹 IT" : l === "en" ? "🇬🇧 EN" : "🇫🇷 FR"}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => loadReverseQuestions()}
+                    disabled={reverseQuestionsLoading}
+                    className="p-2 text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 bg-white dark:bg-stone-800 rounded-xl border border-stone-200 dark:border-stone-700 transition-colors"
+                    title="Rigenera con AI"
+                  >
+                    <RotateCcw className={`w-3.5 h-3.5 ${reverseQuestionsLoading ? "animate-spin" : ""}`} />
+                  </button>
+                </div>
+              </div>
+
+              {reverseQuestionsLoading ? (
+                <div className="py-20 text-center space-y-3">
+                  <Sparkles className="w-8 h-8 text-purple-600 animate-spin mx-auto" />
+                  <p className="text-xs text-stone-500 font-medium">
+                    Analisi strategica del ruolo e generazione delle domande ad alto impatto per {selectedApplication.company}...
+                  </p>
+                </div>
+              ) : !reverseQuestionsData ? (
+                <div className="p-8 text-center bg-stone-50 dark:bg-stone-800/30 rounded-2xl border border-stone-200 dark:border-stone-800 space-y-3">
+                  <HelpCircle className="w-10 h-10 text-purple-600 mx-auto" />
+                  <p className="text-xs text-stone-500 max-w-md mx-auto">
+                    Genera 6-8 domande chirurgiche da porre a CEO, Hiring Manager o Recruiter.
+                  </p>
+                  <button
+                    onClick={() => loadReverseQuestions()}
+                    className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all mx-auto flex items-center gap-2"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Genera Domande Reverse Interview</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-3.5">
+                    {reverseQuestionsData.questions.map((q, idx) => (
+                      <div
+                        key={idx}
+                        className="p-4 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl shadow-xs space-y-3"
+                      >
+                        <div className="flex items-center justify-between gap-2 border-b border-stone-100 dark:border-stone-800 pb-2.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60">
+                            {q.category}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(q.question);
+                              setCopiedQuestionIndex(idx);
+                              setTimeout(() => setCopiedQuestionIndex(null), 2000);
+                              showToast("Domanda copiata negli appunti!", "success");
+                            }}
+                            className="text-xs text-stone-600 dark:text-stone-400 hover:text-purple-600 flex items-center gap-1 font-semibold"
+                          >
+                            {copiedQuestionIndex === idx ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                <span className="text-emerald-600">Copiata!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5" />
+                                <span>Copia Domanda</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* The Question */}
+                        <div className="text-xs font-semibold text-stone-900 dark:text-stone-100 font-serif leading-relaxed text-[13px] bg-stone-50/60 dark:bg-stone-800/40 p-3 rounded-xl border border-stone-200/60 dark:border-stone-700/60">
+                          &quot;{q.question}&quot;
+                        </div>
+
+                        {/* Insights Breakdown */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                          <div className="p-2.5 bg-amber-50/60 dark:bg-amber-950/20 rounded-xl border border-amber-200/60 dark:border-amber-900/40 space-y-1">
+                            <span className="text-[10px] uppercase font-bold text-amber-800 dark:text-amber-400 block flex items-center gap-1">
+                              <Lightbulb className="w-3 h-3 text-amber-600" />
+                              <span>Perché ti posiziona come Senior:</span>
+                            </span>
+                            <p className="text-[11px] text-stone-700 dark:text-stone-300 leading-snug">
+                              {q.whyItEstablishesSeniority}
+                            </p>
+                          </div>
+
+                          <div className="p-2.5 bg-emerald-50/60 dark:bg-emerald-950/20 rounded-xl border border-emerald-200/60 dark:border-emerald-900/40 space-y-1">
+                            <span className="text-[10px] uppercase font-bold text-emerald-800 dark:text-emerald-400 block flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3 text-emerald-600" />
+                              <span>Cosa ascoltare nella risposta:</span>
+                            </span>
+                            <p className="text-[11px] text-stone-700 dark:text-stone-300 leading-snug">
+                              {q.whatToListenFor}
+                            </p>
+                          </div>
+                        </div>
+
+                        {q.riskSignalsToSpot && (
+                          <div className="text-[11px] text-rose-700 dark:text-rose-400 bg-rose-50/60 dark:bg-rose-950/20 p-2 rounded-lg border border-rose-200/50 flex items-center gap-1.5">
+                            <AlertTriangle className="w-3 h-3 shrink-0 text-rose-500" />
+                            <span>
+                              <strong>Campanello d'allarme:</strong> {q.riskSignalsToSpot}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {reverseQuestionsData.closingAdvice && (
+                    <div className="p-4 bg-purple-50 dark:bg-purple-950/30 rounded-2xl border border-purple-200 dark:border-purple-800 text-xs text-purple-900 dark:text-purple-200 font-medium">
+                      💡 <strong>Consiglio del Coach:</strong> {reverseQuestionsData.closingAdvice}
                     </div>
                   )}
                 </div>

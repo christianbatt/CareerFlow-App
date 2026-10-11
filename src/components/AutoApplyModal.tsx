@@ -156,8 +156,8 @@ export const AutoApplyModal: React.FC = () => {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-      } catch {
-        window.open(selectedApplication.sourceUrl, "_blank", "noopener,noreferrer");
+      } catch (e) {
+        console.warn("Could not trigger link click:", e);
       }
     }
 
