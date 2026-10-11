@@ -279,6 +279,67 @@ export interface JobHunterPreferences {
   monacoSpecificRadar?: MonacoRadarSettings;
 }
 
+export interface SavedJobSearch {
+  id: string;
+  name: string;
+  createdAt: string;
+  lastUsedAt?: string;
+  criteria: {
+    role: string;
+    location: string;
+    salary: string; // minSalary e.g. "any", "40k", "50k" etc. or custom
+    workplaceType?: "All" | "Remote" | "Hybrid" | "On-site";
+    seniority?: "All" | "Junior" | "Mid" | "Senior" | "Lead";
+    languageFilter?: "any" | "it" | "en" | "bilingual" | "de" | "fr" | "es";
+    industrySector?: string;
+    companySize?: "any" | "startup" | "scaleup" | "enterprise";
+    publishFreshness?: "24h" | "7d" | "30d" | "any";
+    portals?: string[];
+    minMatchScore?: number;
+    monacoRadar?: boolean;
+  };
+  preferencesSnapshot: JobHunterPreferences;
+}
+
+export interface MissingSkillItem {
+  skill: string;
+  category: "Hard Skill" | "Soft Skill" | "Tool & Tech" | "Certificazione" | "Metodologia";
+  importance: "critical" | "high" | "nice_to_have";
+  reason: string;
+  suggestion: string;
+}
+
+export interface MatchedSkillItem {
+  skill: string;
+  category?: string;
+  cvEvidenceSnippet?: string;
+}
+
+export interface RequirementComparisonItem {
+  requirement: string;
+  status: "matched" | "partial" | "missing";
+  candidateEvidence?: string;
+  advice?: string;
+}
+
+export interface JobCvComparisonResult {
+  jobId: string;
+  jobTitle: string;
+  company: string;
+  cvDocName?: string;
+  matchScore: number;
+  matchLevel: "Eccellente" | "Forte" | "Moderato" | "Basso";
+  atsPassProbability: "Alta" | "Media" | "Bassa";
+  summary: string;
+  matchedSkills: MatchedSkillItem[];
+  missingSkills: MissingSkillItem[];
+  missingKeywords: string[];
+  requirementsComparison: RequirementComparisonItem[];
+  atsOptimizationTips: string[];
+  tailoringAdvice: string;
+  analyzedAt: string;
+}
+
 export interface ToastMessage {
   id: string;
   type: "success" | "error" | "info" | "warning";
@@ -335,3 +396,33 @@ export interface SkillGapAnalysisResult {
 }
 
 export type SupportedLanguage = "it" | "en" | "fr";
+
+export interface CopilotJobOffer {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  salary?: string;
+  portal: string;
+  jobUrl: string;
+  matchScore: number;
+  matchReasoning?: string;
+  matchedSkills?: string[];
+  missingSkills?: string[];
+  isDirectCareerPage?: boolean;
+  atsSystem?: "Greenhouse" | "Lever" | "Workday" | "SmartRecruiters" | "CompanyCareers" | "Other";
+  description?: string;
+}
+
+export type CopilotMode = "job-hunter" | "applications" | "cv-tailor" | "interview" | "general";
+
+export interface CopilotMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: string;
+  mode?: CopilotMode;
+  discoveredJobs?: CopilotJobOffer[];
+  suggestedActions?: { label: string; prompt: string }[];
+  isSearchingWeb?: boolean;
+}

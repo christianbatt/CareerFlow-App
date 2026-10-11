@@ -15,12 +15,36 @@ import { BackupModal } from "./components/BackupModal";
 import { FollowUpGeneratorModal } from "./components/FollowUpGeneratorModal";
 import { InstallAppModal } from "./components/InstallAppModal";
 import { AutoApplyModal } from "./components/AutoApplyModal";
+import { CareerCopilotDrawer, CareerCopilotDockButton } from "./components/CareerCopilotDrawer";
 
 const MainContent: React.FC = () => {
-  const { activeTab } = useApp();
+  const {
+    activeTab,
+    isCopilotOpen,
+    openCopilot,
+    closeCopilot,
+    copilotMode,
+    copilotInitialPrompt,
+  } = useApp();
+
+  // Global keyboard shortcut: Cmd+K or Ctrl+K to toggle Copilot
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        if (isCopilotOpen) {
+          closeCopilot();
+        } else {
+          openCopilot();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isCopilotOpen, openCopilot, closeCopilot]);
 
   return (
-    <main className="min-h-[calc(100vh-4rem)]">
+    <main className="min-h-[calc(100vh-4rem)] relative">
       {activeTab === "kanban" && <KanbanBoard />}
       {activeTab === "analytics" && <AnalyticsDashboard />}
       {activeTab === "cover-letter" && <CoverLetterStudio />}
@@ -37,6 +61,18 @@ const MainContent: React.FC = () => {
       <FollowUpGeneratorModal />
       <InstallAppModal />
       <AutoApplyModal />
+
+      {/* Unified AI Career Copilot Drawer & Dock */}
+      <CareerCopilotDrawer
+        isOpen={isCopilotOpen}
+        onClose={closeCopilot}
+        defaultMode={copilotMode}
+        initialPrompt={copilotInitialPrompt}
+      />
+      <CareerCopilotDockButton
+        isOpen={isCopilotOpen}
+        onClick={() => (isCopilotOpen ? closeCopilot() : openCopilot())}
+      />
     </main>
   );
 };

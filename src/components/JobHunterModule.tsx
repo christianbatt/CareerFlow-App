@@ -37,6 +37,12 @@ import {
   Compass,
   Info,
   HelpCircle,
+  Bot,
+  Bookmark,
+  BookmarkCheck,
+  BookmarkPlus,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { parseDocumentFile } from "../utils/documentParser";
@@ -49,7 +55,9 @@ import {
   WorkplaceType,
   JobVerificationResult,
   MonacoRadarSettings,
+  SavedJobSearch,
 } from "../types";
+import { JobCvComparisonModal } from "./JobCvComparisonModal";
 
 export const JobHunterModule: React.FC = () => {
   const {
@@ -67,6 +75,10 @@ export const JobHunterModule: React.FC = () => {
     openInterviewCoachForApp,
     openAutoApplyForApp,
     showToast,
+    openCopilot,
+    savedJobSearches,
+    saveJobSearch,
+    deleteJobSearch,
   } = useApp();
 
   // Active sub-tab
@@ -116,6 +128,79 @@ export const JobHunterModule: React.FC = () => {
     resultsCount: 12,
   });
 
+  // Saved Searches state
+  const [activeSavedSearchId, setActiveSavedSearchId] = useState<string | null>(null);
+  const [showSaveSearchModal, setShowSaveSearchModal] = useState<boolean>(false);
+  const [newSearchName, setNewSearchName] = useState<string>("");
+  const [showSavedSearchesDropdown, setShowSavedSearchesDropdown] = useState<boolean>(false);
+
+  // Handlers for Saved Searches
+  const handleApplySavedSearch = (savedSearch: SavedJobSearch) => {
+    setActiveSavedSearchId(savedSearch.id);
+    const restoredPrefs: JobHunterPreferences = {
+      ...savedSearch.preferencesSnapshot,
+      roleFilter: savedSearch.criteria.role,
+      location: savedSearch.criteria.location,
+      minSalary: (savedSearch.criteria.salary as any) || savedSearch.preferencesSnapshot.minSalary || "any",
+      workplaceType: savedSearch.criteria.workplaceType || savedSearch.preferencesSnapshot.workplaceType || "All",
+      seniority: savedSearch.criteria.seniority || savedSearch.preferencesSnapshot.seniority || "All",
+      languageFilter: savedSearch.criteria.languageFilter || savedSearch.preferencesSnapshot.languageFilter || "any",
+      industrySector: savedSearch.criteria.industrySector || savedSearch.preferencesSnapshot.industrySector || "all",
+      companySize: savedSearch.criteria.companySize || savedSearch.preferencesSnapshot.companySize || "any",
+      publishFreshness: savedSearch.criteria.publishFreshness || savedSearch.preferencesSnapshot.publishFreshness || "any",
+      portals: savedSearch.criteria.portals || savedSearch.preferencesSnapshot.portals || preferences.portals,
+      minMatchScore: savedSearch.criteria.minMatchScore || savedSearch.preferencesSnapshot.minMatchScore || preferences.minMatchScore,
+    };
+    setPreferences(restoredPrefs);
+    showToast(`Filtri caricati da: "${savedSearch.name}"`, "info");
+  };
+
+  const handleLaunchSavedSearch = async (savedSearch: SavedJobSearch) => {
+    handleApplySavedSearch(savedSearch);
+    const restoredPrefs: JobHunterPreferences = {
+      ...savedSearch.preferencesSnapshot,
+      roleFilter: savedSearch.criteria.role,
+      location: savedSearch.criteria.location,
+      minSalary: (savedSearch.criteria.salary as any) || savedSearch.preferencesSnapshot.minSalary || "any",
+      workplaceType: savedSearch.criteria.workplaceType || savedSearch.preferencesSnapshot.workplaceType || "All",
+      seniority: savedSearch.criteria.seniority || savedSearch.preferencesSnapshot.seniority || "All",
+      languageFilter: savedSearch.criteria.languageFilter || savedSearch.preferencesSnapshot.languageFilter || "any",
+      industrySector: savedSearch.criteria.industrySector || savedSearch.preferencesSnapshot.industrySector || "all",
+      companySize: savedSearch.criteria.companySize || savedSearch.preferencesSnapshot.companySize || "any",
+      publishFreshness: savedSearch.criteria.publishFreshness || savedSearch.preferencesSnapshot.publishFreshness || "any",
+      portals: savedSearch.criteria.portals || savedSearch.preferencesSnapshot.portals || preferences.portals,
+      minMatchScore: savedSearch.criteria.minMatchScore || savedSearch.preferencesSnapshot.minMatchScore || preferences.minMatchScore,
+    };
+    showToast(`Lancio ricerca AI salvata: "${savedSearch.name}"... `, "success");
+    await handleDiscoverJobs(cvText, restoredPrefs);
+  };
+
+  const handleCreateSavedSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newSearchName.trim() || `${preferences.roleFilter || 'Tutti i ruoli'} - ${preferences.location || 'Qualsiasi'}`;
+    const newSearch = saveJobSearch(
+      name,
+      {
+        role: preferences.roleFilter || "",
+        location: preferences.location || "",
+        salary: preferences.minSalary || "any",
+        workplaceType: preferences.workplaceType,
+        seniority: preferences.seniority,
+        languageFilter: preferences.languageFilter,
+        industrySector: preferences.industrySector,
+        companySize: preferences.companySize,
+        publishFreshness: preferences.publishFreshness,
+        portals: preferences.portals,
+        minMatchScore: preferences.minMatchScore,
+        monacoRadar: Boolean(preferences.monacoSpecificRadar?.enabled),
+      },
+      preferences
+    );
+    setActiveSavedSearchId(newSearch.id);
+    setNewSearchName("");
+    setShowSaveSearchModal(false);
+  };
+
   // State for Discovered Jobs
   const [isSearchingJobs, setIsSearchingJobs] = useState<boolean>(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -138,6 +223,10 @@ export const JobHunterModule: React.FC = () => {
 
   // Monaco Directory & Frontalieri Info Modal state
   const [showMonacoDirectoryModal, setShowMonacoDirectoryModal] = useState<boolean>(false);
+
+  // CV vs Selected Job Comparison modal state
+  const [comparingJob, setComparingJob] = useState<DiscoveredJobOffer | null>(null);
+  const [showCompareModal, setShowCompareModal] = useState<boolean>(false);
 
   // State for Existing Applications Scoring
   const [isScoringExisting, setIsScoringExisting] = useState<boolean>(false);
@@ -793,14 +882,107 @@ export const JobHunterModule: React.FC = () => {
         <div className="space-y-6">
           {/* Filter & Preferences Card */}
           <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-5 shadow-sm space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 dark:border-stone-800 pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-100 dark:border-stone-800 pb-3">
               <div className="flex items-center gap-2 text-xs font-bold text-stone-900 dark:text-stone-100">
                 <Filter className="w-3.5 h-3.5 text-indigo-500" />
                 <span>Filtri & Radar di Ricerca</span>
+                <span className="hidden sm:inline text-[11px] font-normal text-stone-500">
+                  Personalizza criteri (ruolo, RAL, sede) per trovare posizioni verificate
+                </span>
               </div>
-              <span className="text-[11px] text-stone-500">
-                Personalizza per trovare le posizioni più mirate
-              </span>
+
+              {/* Saved Searches Quick Access & Save Trigger */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSaveSearchModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                  title="Salva questa configurazione di ricerca (ruolo, RAL, location, filtri)"
+                >
+                  <BookmarkPlus className="w-3.5 h-3.5" />
+                  <span>Salva Ricerca Corrente</span>
+                </button>
+              </div>
+            </div>
+
+            {/* SAVED SEARCHES PERSISTENT PRESETS BAR */}
+            <div className="p-3 bg-stone-50/80 dark:bg-stone-800/40 border border-stone-200/80 dark:border-stone-700/60 rounded-xl space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-stone-800 dark:text-stone-200">
+                  <Bookmark className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>Ricerche Salvate ({savedJobSearches.length})</span>
+                  <span className="text-[10px] font-normal text-stone-500 hidden md:inline">
+                    (Carica o lancia con 1 click i tuoi set di filtri preferiti)
+                  </span>
+                </div>
+                {activeSavedSearchId && (
+                  <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/80 px-2 py-0.5 rounded-md border border-indigo-200 dark:border-indigo-800/50">
+                    Filtro attivo: {savedJobSearches.find(s => s.id === activeSavedSearchId)?.name || 'Personalizzato'}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                {savedJobSearches.map((s) => {
+                  const isActive = activeSavedSearchId === s.id;
+                  return (
+                    <div
+                      key={s.id}
+                      className={`group flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-xl text-xs font-medium border transition-all ${
+                        isActive
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                          : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:border-indigo-400 dark:hover:border-indigo-600'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleApplySavedSearch(s)}
+                        className="flex items-center gap-1.5 cursor-pointer text-left"
+                        title={`Ruolo: ${s.criteria.role || 'Tutti'} | Luogo: ${s.criteria.location || 'Qualsiasi'} | RAL: ${s.criteria.salary || 'Qualsiasi'}`}
+                      >
+                        {isActive ? (
+                          <BookmarkCheck className="w-3.5 h-3.5 shrink-0 text-white" />
+                        ) : (
+                          <Bookmark className="w-3.5 h-3.5 shrink-0 text-indigo-500" />
+                        )}
+                        <span className="font-bold truncate max-w-[160px] sm:max-w-[210px]">
+                          {s.name}
+                        </span>
+                      </button>
+
+                      <div className="flex items-center gap-1 shrink-0 ml-1">
+                        <button
+                          type="button"
+                          onClick={() => handleLaunchSavedSearch(s)}
+                          disabled={isSearchingJobs}
+                          className={`px-1.5 py-0.5 text-[10px] font-black rounded cursor-pointer transition-colors ${
+                            isActive
+                              ? 'bg-white/20 text-white hover:bg-white/30'
+                              : 'bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100'
+                          }`}
+                          title="Lancia subito la ricerca AI con questo profilo salvato"
+                        >
+                          ⚡ Lancia
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteJobSearch(s.id);
+                            if (activeSavedSearchId === s.id) setActiveSavedSearchId(null);
+                          }}
+                          className={`p-1 rounded cursor-pointer transition-colors opacity-70 group-hover:opacity-100 ${
+                            isActive ? 'hover:bg-red-500 text-white' : 'hover:bg-red-50 dark:hover:bg-red-950/50 text-stone-400 hover:text-red-600'
+                          }`}
+                          title="Elimina ricerca salvata"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Live Search Grounding Banner & Toggle */}
@@ -1496,14 +1678,60 @@ export const JobHunterModule: React.FC = () => {
                 />
               </div>
 
+              <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => handleDiscoverJobs()}
+                  disabled={isSearchingJobs}
+                  className="flex-1 sm:flex-initial px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                >
+                  <Sparkles className={`w-4 h-4 ${isSearchingJobs ? "animate-spin" : ""}`} />
+                  <span>{isSearchingJobs ? "Cercando offerte affini..." : "🔍 Cerca con AI"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSaveSearchModal(true)}
+                  className="px-3 py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+                  title="Salva questa ricerca e i suoi criteri attuali (ruolo, stipendio, sede)"
+                >
+                  <BookmarkPlus className="w-4 h-4 text-indigo-500" />
+                  <span className="hidden sm:inline">Salva Ricerca</span>
+                </button>
+              </div>
+
               <button
                 type="button"
-                onClick={() => handleDiscoverJobs()}
-                disabled={isSearchingJobs}
-                className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 shrink-0"
+                onClick={() =>
+                  openCopilot(
+                    "job-hunter",
+                    preferences.roleFilter
+                      ? `Cercami offerte attive su portali ATS (Greenhouse, Lever, Workday) per ${preferences.roleFilter} in ${preferences.location || "Remoto o Italia"}`
+                      : `Scandaglia i portali e le pagine Careers aziendali (Greenhouse, Lever, Workday) per il mio profilo`
+                  )
+                }
+                className="w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                title="Chiedi al Copilot di cercare e affinare posizioni in chat"
               >
-                <Sparkles className={`w-4 h-4 ${isSearchingJobs ? "animate-spin" : ""}`} />
-                <span>{isSearchingJobs ? "Cercando offerte affini..." : "🔍 Cerca Offerte Affini con AI"}</span>
+                <Bot className="w-4 h-4" />
+                <span>Chatta con Copilot AI</span>
+              </button>
+            </div>
+
+            {/* Deep Radar & Copilot Pro-tip Banner */}
+            <div className="p-3 bg-gradient-to-r from-indigo-50/70 via-purple-50/50 to-stone-50/50 dark:from-indigo-950/30 dark:via-purple-950/20 dark:to-stone-900/40 border border-indigo-100 dark:border-indigo-900/50 rounded-xl flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-base shrink-0">✨</span>
+                <p className="text-stone-700 dark:text-stone-300 leading-relaxed text-[11px]">
+                  <strong>Ricerca Profonda & Conversazionale:</strong> Puoi chiedere al Copilot di cercare in linguaggio naturale (es. <em>"trovami aziende SaaS che assumono da remoto con Greenhouse o Lever"</em>) e salvare le offerte direttamente nel tuo Kanban con 1 click.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => openCopilot("job-hunter")}
+                className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline shrink-0 flex items-center gap-1 cursor-pointer"
+              >
+                <span>Avvia Chat</span>
+                <ArrowRight className="w-3 h-3" />
               </button>
             </div>
           </div>
@@ -1722,16 +1950,21 @@ export const JobHunterModule: React.FC = () => {
                               )}
                             </div>
 
-                            {/* Match Score Badge */}
-                            <div
-                              className={`px-2.5 py-1 rounded-xl text-xs font-black border flex items-center gap-1 shrink-0 ${getScoreColor(
+                            {/* Match Score Badge (Clickable to Compare with CV) */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setComparingJob(job);
+                                setShowCompareModal(true);
+                              }}
+                              className={`px-2.5 py-1 rounded-xl text-xs font-black border flex items-center gap-1 shrink-0 hover:scale-105 active:scale-95 transition-transform cursor-pointer shadow-2xs ${getScoreColor(
                                 job.matchScore
                               )}`}
-                              title={job.matchLevel}
+                              title={`Affinità: ${job.matchScore}% (${job.matchLevel}) - Clicca per confrontare con il tuo CV ed evidenziare i gap`}
                             >
                               <Zap className="w-3.5 h-3.5" />
                               <span>{job.matchScore}%</span>
-                            </div>
+                            </button>
                           </div>
 
                           {/* Job Title & Company */}
@@ -1870,6 +2103,18 @@ export const JobHunterModule: React.FC = () => {
                                   </span>
                                 ))}
                               </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setComparingJob(job);
+                                  setShowCompareModal(true);
+                                }}
+                                className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 hover:underline cursor-pointer"
+                                title="Analizza dettagliatamente le parole chiave mancanti e i requisiti ATS"
+                              >
+                                <AlertTriangle className="w-3 h-3 text-rose-500" />
+                                <span>Analizza gap e parole chiave mancanti &rarr;</span>
+                              </button>
                             </div>
                           )}
                         </div>
@@ -2000,6 +2245,20 @@ export const JobHunterModule: React.FC = () => {
                             >
                               <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
                               <span>⚡ Auto-Apply</span>
+                            </button>
+
+                            {/* 🔍 Confronta con CV & Gap ATS Button */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setComparingJob(job);
+                                setShowCompareModal(true);
+                              }}
+                              className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80 flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                              title="Confronta il tuo CV con i requisiti di questa offerta ed evidenzia le competenze o parole chiave mancanti"
+                            >
+                              <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                              <span>Confronta CV</span>
                             </button>
                           </div>
 
@@ -2352,6 +2611,35 @@ export const JobHunterModule: React.FC = () => {
                             <FileText className="w-3 h-3" />
                             <span>Adatta CV</span>
                           </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const pseudoJob: DiscoveredJobOffer = {
+                                id: app.id,
+                                title: app.title,
+                                company: app.company,
+                                location: app.location || "N/D",
+                                workplaceType: app.workplaceType || "Remote",
+                                portal: (app.sourcePlatform as any) || "Other",
+                                jobUrl: app.sourceUrl || "",
+                                salary: app.salary ? String(app.salary) : undefined,
+                                matchScore: score,
+                                matchLevel: score >= 85 ? "Eccellente" : "Forte",
+                                matchReasoning: details?.summary || "Analisi della candidatura",
+                                matchedSkills: app.requiredSkills || [],
+                                missingSkills: details?.gaps || [],
+                                description: app.jobDescription || "",
+                              };
+                              setComparingJob(pseudoJob);
+                              setShowCompareModal(true);
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 font-semibold transition-colors flex items-center gap-1 border border-indigo-200 dark:border-indigo-800"
+                            title="Confronta il tuo CV con i requisiti di questa candidatura"
+                          >
+                            <Sparkles className="w-3 h-3 text-indigo-500" />
+                            <span>Confronta CV</span>
+                          </button>
                         </div>
 
                         {app.sourceUrl && (
@@ -2428,6 +2716,113 @@ export const JobHunterModule: React.FC = () => {
                 Salva con Link Verificato
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal for Saving a Job Search Preset */}
+      {showSaveSearchModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in duration-150">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-3 border-b border-stone-100 dark:border-stone-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-xs">
+                  <BookmarkPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-stone-900 dark:text-stone-100">
+                    Salva Criteri di Ricerca Job Hunter
+                  </h3>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                    Crea un preset persistente con i tuoi criteri attuali per ricerche future con AI
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSaveSearchModal(false)}
+                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Current Criteria Summary */}
+            <div className="p-3.5 bg-stone-50 dark:bg-stone-800/50 rounded-2xl border border-stone-200/80 dark:border-stone-700/60 text-xs space-y-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 block">
+                Criteri che verranno memorizzati:
+              </span>
+              <div className="grid grid-cols-2 gap-2 text-stone-700 dark:text-stone-300">
+                <div>
+                  <span className="text-stone-500">🎯 Ruolo/Keyword: </span>
+                  <span className="font-semibold">{preferences.roleFilter || "Tutti i ruoli compatibili col CV"}</span>
+                </div>
+                <div>
+                  <span className="text-stone-500">📍 Location: </span>
+                  <span className="font-semibold">{preferences.location || "Qualsiasi"}</span>
+                </div>
+                <div>
+                  <span className="text-stone-500">💰 RAL minima: </span>
+                  <span className="font-semibold">{preferences.minSalary && preferences.minSalary !== "any" ? `> €${preferences.minSalary}` : "Senza vincolo"}</span>
+                </div>
+                <div>
+                  <span className="text-stone-500">🏢 Modalità: </span>
+                  <span className="font-semibold">{preferences.workplaceType}</span>
+                </div>
+                <div>
+                  <span className="text-stone-500">💼 Seniority: </span>
+                  <span className="font-semibold">{preferences.seniority}</span>
+                </div>
+                <div>
+                  <span className="text-stone-500">🗣️ Lingua: </span>
+                  <span className="font-semibold">{preferences.languageFilter || 'any'}</span>
+                </div>
+                <div>
+                  <span className="text-stone-500">🏷️ Settore: </span>
+                  <span className="font-semibold">{preferences.industrySector || 'all'}</span>
+                </div>
+                <div>
+                  <span className="text-stone-500">🌐 Fonti: </span>
+                  <span className="font-semibold">{preferences.portals.length} portali + Careers</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleCreateSavedSearch} className="space-y-4 pt-1">
+              <div>
+                <label className="block text-xs font-bold text-stone-800 dark:text-stone-200 mb-1.5">
+                  Nome della ricerca salvata:
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newSearchName}
+                  onChange={(e) => setNewSearchName(e.target.value)}
+                  placeholder="es. Senior Developer - Remote (RAL 60k)"
+                  className="w-full px-3.5 py-2.5 text-xs bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-stone-100 dark:border-stone-800">
+                <button
+                  type="button"
+                  onClick={() => setShowSaveSearchModal(false)}
+                  className="px-4 py-2 text-xs font-semibold text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition-colors cursor-pointer"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <BookmarkCheck className="w-4 h-4" />
+                  <span>Salva Criteri per il Futuro</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -2602,6 +2997,26 @@ export const JobHunterModule: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Modal for CV vs Selected Job Requirements & Missing Keywords Comparison */}
+      <JobCvComparisonModal
+        isOpen={showCompareModal}
+        onClose={() => {
+          setShowCompareModal(false);
+          setComparingJob(null);
+        }}
+        job={comparingJob}
+        activeCvText={cvText}
+        onOpenTailorCv={async (jobOffer) => {
+          const app = await handleImportJob(jobOffer);
+          if (app) setSelectedApplication(app);
+          setActiveTab("documents");
+        }}
+        onImportToTracker={async (jobOffer) => {
+          await handleImportJob(jobOffer);
+        }}
+        isJobAlreadyImported={Boolean(comparingJob && importedJobIds[comparingJob.id])}
+      />
     </div>
   );
 };

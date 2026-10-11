@@ -18,6 +18,9 @@ import {
   CvMatchDetail,
   ToastMessage,
   JobVerificationResult,
+  CopilotMode,
+  JobHunterPreferences,
+  SavedJobSearch,
 } from "../types";
 import {
   initialApplications,
@@ -75,6 +78,17 @@ interface AppContextType {
   toasts: ToastMessage[];
   showToast: (message: string, type?: "success" | "error" | "info" | "warning") => void;
   removeToast: (id: string) => void;
+  isCopilotOpen: boolean;
+  setIsCopilotOpen: (open: boolean) => void;
+  copilotMode: CopilotMode;
+  setCopilotMode: (mode: CopilotMode) => void;
+  copilotInitialPrompt: string;
+  openCopilot: (mode?: CopilotMode, prompt?: string) => void;
+  closeCopilot: () => void;
+  savedJobSearches: SavedJobSearch[];
+  saveJobSearch: (name: string, criteria: SavedJobSearch['criteria'], preferencesSnapshot: JobHunterPreferences) => SavedJobSearch;
+  deleteJobSearch: (id: string) => void;
+  updateJobSearch: (id: string, updates: Partial<SavedJobSearch>) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -238,6 +252,168 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setTimeout(() => {
       removeToast(id);
     }, 4500);
+  };
+
+  // Career Copilot State
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
+  const [copilotMode, setCopilotMode] = useState<CopilotMode>("job-hunter");
+  const [copilotInitialPrompt, setCopilotInitialPrompt] = useState("");
+
+  const openCopilot = (mode?: CopilotMode, prompt?: string) => {
+    if (mode) setCopilotMode(mode);
+    if (prompt) setCopilotInitialPrompt(prompt);
+    setIsCopilotOpen(true);
+  };
+
+  const closeCopilot = () => {
+    setIsCopilotOpen(false);
+  };
+
+  // Saved Job Searches State with LocalStorage Persistence
+  const [savedJobSearches, setSavedJobSearches] = useState<SavedJobSearch[]>(() => {
+    try {
+      const stored = localStorage.getItem(`${STORAGE_KEY}_saved_searches`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.error("Failed to load saved searches from localStorage:", e);
+    }
+    return [
+      {
+        id: "preset-remote-lead",
+        name: "Senior/Lead Tech & Product (Full Remote Europa)",
+        createdAt: new Date().toISOString(),
+        criteria: {
+          role: "Engineering Lead / Full Stack / Product",
+          location: "Remoto Europa / Global",
+          salary: "60k",
+          workplaceType: "Remote",
+          seniority: "Lead",
+          languageFilter: "en",
+          industrySector: "SaaS & Cloud Software",
+          publishFreshness: "7d",
+          minMatchScore: 80,
+        },
+        preferencesSnapshot: {
+          portals: ["LinkedIn", "RemoteOK", "WeWorkRemotely", "Wellfound"],
+          workplaceType: "Remote",
+          location: "Remoto Europa / Global",
+          seniority: "Lead",
+          minMatchScore: 80,
+          roleFilter: "Engineering Lead / Full Stack / Product",
+          enableLiveSearch: true,
+          sourcePriority: "all",
+          languageFilter: "en",
+          minSalary: "60k",
+          industrySector: "SaaS & Cloud Software",
+          companySize: "scaleup",
+          publishFreshness: "7d",
+          resultsCount: 12,
+        },
+      },
+      {
+        id: "preset-italy-exec",
+        name: "Executive & Management Italia (RAL 50k+)",
+        createdAt: new Date().toISOString(),
+        criteria: {
+          role: "Manager / Director / Responsabile",
+          location: "Italia / Ibrido",
+          salary: "50k",
+          workplaceType: "Hybrid",
+          seniority: "Senior",
+          languageFilter: "it",
+          industrySector: "all",
+          publishFreshness: "30d",
+          minMatchScore: 75,
+        },
+        preferencesSnapshot: {
+          portals: ["LinkedIn", "Indeed", "Glassdoor"],
+          workplaceType: "Hybrid",
+          location: "Italia / Ibrido",
+          seniority: "Senior",
+          minMatchScore: 75,
+          roleFilter: "Manager / Director / Responsabile",
+          enableLiveSearch: true,
+          sourcePriority: "all",
+          languageFilter: "it",
+          minSalary: "50k",
+          industrySector: "all",
+          companySize: "enterprise",
+          publishFreshness: "30d",
+          resultsCount: 12,
+        },
+      },
+      {
+        id: "preset-monaco-front",
+        name: "🇲🇨 Monaco & Monte-Carlo (Finance, Tech & SBM Frontalieri Nice)",
+        createdAt: new Date().toISOString(),
+        criteria: {
+          role: "Finance, Tech, Luxury, Corporate",
+          location: "Monaco / Monte-Carlo",
+          salary: "60k",
+          workplaceType: "On-site",
+          seniority: "Senior",
+          languageFilter: "bilingual",
+          monacoRadar: true,
+          minMatchScore: 75,
+        },
+        preferencesSnapshot: {
+          portals: ["MonacoJob", "GouvMonaco", "SBM", "FEDEM", "LinkedIn"],
+          workplaceType: "On-site",
+          location: "Monaco / Monte-Carlo",
+          seniority: "Senior",
+          minMatchScore: 75,
+          roleFilter: "Finance, Tech, Luxury, Corporate",
+          enableLiveSearch: true,
+          sourcePriority: "all",
+          languageFilter: "bilingual",
+          minSalary: "60k",
+          monacoSpecificRadar: {
+            enabled: true,
+            sectorFocus: "all",
+            crossBorderNiceTransport: true,
+            languageFocus: "it_fr_en",
+            includeMonacoGovAndFedem: true,
+          },
+          resultsCount: 12,
+        },
+      },
+    ];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(`${STORAGE_KEY}_saved_searches`, JSON.stringify(savedJobSearches));
+    } catch (e) {
+      console.error("Failed to save searches to localStorage:", e);
+    }
+  }, [savedJobSearches]);
+
+  const saveJobSearch = (name: string, criteria: SavedJobSearch['criteria'], preferencesSnapshot: JobHunterPreferences): SavedJobSearch => {
+    const newSearch: SavedJobSearch = {
+      id: `search_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      name: name.trim() || `Ricerca ${new Date().toLocaleDateString()}`,
+      createdAt: new Date().toISOString(),
+      lastUsedAt: new Date().toISOString(),
+      criteria,
+      preferencesSnapshot,
+    };
+    setSavedJobSearches((prev) => [newSearch, ...prev]);
+    showToast(`Ricerca salvata: "${newSearch.name}" con successo!`, "success");
+    return newSearch;
+  };
+
+  const deleteJobSearch = (id: string) => {
+    setSavedJobSearches((prev) => prev.filter((s) => s.id !== id));
+    showToast("Ricerca salvata rimossa", "info");
+  };
+
+  const updateJobSearch = (id: string, updates: Partial<SavedJobSearch>) => {
+    setSavedJobSearches((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, ...updates } : s))
+    );
   };
 
   // Online / offline event listeners
@@ -550,6 +726,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       localStorage.removeItem(`${LEGACY_STORAGE_KEY}_templates`);
       localStorage.removeItem("careerflow_skill_gap_analysis");
       localStorage.removeItem("careerflow_skill_gap_progress");
+      localStorage.removeItem(`${STORAGE_KEY}_saved_searches`);
+      setSavedJobSearches([]);
     } catch {
       // Ignore storage errors
     }
@@ -610,6 +788,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         toasts,
         showToast,
         removeToast,
+        isCopilotOpen,
+        setIsCopilotOpen,
+        copilotMode,
+        setCopilotMode,
+        copilotInitialPrompt,
+        openCopilot,
+        closeCopilot,
+        savedJobSearches,
+        saveJobSearch,
+        deleteJobSearch,
+        updateJobSearch,
       }}
     >
       {children}

@@ -16,6 +16,7 @@ import {
   Mail,
   Zap,
   Monitor,
+  Bot,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { SupportedLanguage } from "../types";
@@ -32,6 +33,9 @@ export const Header: React.FC = () => {
     toggleDarkMode,
     isOnline,
     setActiveModal,
+    isCopilotOpen,
+    openCopilot,
+    closeCopilot,
   } = useApp();
 
   // Count applications that have been waiting >= 7 days
@@ -153,6 +157,20 @@ export const Header: React.FC = () => {
 
           {/* Quick Actions & Preferences */}
           <div className="flex items-center gap-2">
+            {/* Career Copilot AI Launcher */}
+            <button
+              onClick={() => (isCopilotOpen ? closeCopilot() : openCopilot("job-hunter"))}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                isCopilotOpen
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200/60 dark:border-indigo-800/40"
+              }`}
+              title="Apri Career Copilot AI (Ctrl+K)"
+            >
+              <Bot className="w-3.5 h-3.5 text-indigo-500" />
+              <span className="hidden sm:inline">Copilot AI</span>
+            </button>
+
             {/* AI Job Extraction Button */}
             <button
               onClick={() => setActiveModal("import")}

@@ -1,101 +1,118 @@
-# Piano di Implementazione: Filtri Avanzati Job Hunter AI e Correzione Errori dell'App
+# Job Hunter AI Deep Radar & Career Copilot Unificato
 
-Questo piano formalizza l'espansione dei parametri di ricerca nel radar offerte di **Job Hunter AI** e definisce la risoluzione dettagliata dei bug riscontrati nell'applicazione (errori durante la generazione AI, salvataggio/caricamento candidature e anomalie nei tab e nel tracker).
-
----
-
-## 1. Analisi dei Requisiti & Diagnosi Bug
-
-### A. Nuovi Parametri di Ricerca Dettagliati (Job Hunter AI)
-In base alle tue preferenze, il modulo Job Hunter permetterà di affinare la scansione intelligente con controlli dedicati:
-1. **Lingua dell'annuncio o del team**:
-   - Opzioni: Qualsiasi lingua, Italiano, Inglese, Bilingue (IT/EN), Tedesco, Francese, Spagnolo.
-2. **Range Salariale Minimo Desiderato (RAL)**:
-   - Opzioni: Qualsiasi, > €30.000, > €40.000, > €50.000, > €60.000, > €80.000, > €100.000 (o valuta equivalente).
-3. **Settore / Industria Specifica**:
-   - Opzioni: Tutti i settori, SaaS / Software, FinTech & Banking, E-commerce & Retail, Consulenza & System Integration, AI & Machine Learning / DeepTech, HealthTech & Pharma, Media & Entertainment.
-4. **Dimensione Aziendale / Tipologia**:
-   - Opzioni: Tutte le dimensioni, Startup (< 50 dipendenti), Scaleup / PMI innovativa (50-250), Grande Impresa / Enterprise (250+ dipendenti).
-5. **Data di Pubblicazione / Freschezza**:
-   - Opzioni: Ultime 24 ore (Recentissime), Ultimi 7 giorni (Fresche), Ultimi 30 giorni (Mese in corso), Qualsiasi data.
-6. **Livello di Seniority (Parametro di valore aggiunto)**:
-   - Opzioni: Tutti i livelli, Junior / Entry-level, Mid-level, Senior, Lead / Manager.
-
-Questi parametri verranno:
-- Integrati nel tipo TypeScript `JobHunterPreferences`.
-- Passati nel payload della richiesta `/api/job-hunter/discover` a Gemini 3.8 Flash e al Google Search Grounding per raffinare sia le query di ricerca sul web sia i criteri di estrazione e matching con il CV.
-- Visualizzati con un pannello comprimibile intuitivo ("Filtri Avanzati di Ricerca") con badge e selettori veloci nel modulo Job Hunter.
+Espansione ad alta profondità del motore di ricerca posizioni (scansione multi-portale estesa e pagine "Lavora con noi" / ATS aziendali diretti come Greenhouse, Lever, Workday) e integrazione di un assistente conversazionale Gemini Career Copilot unificato, con schede offerta interattive in chat e azioni istantanee per Kanban e CV tailoring.
 
 ---
 
-### B. Diagnosi e Correzione dei Bug dell'App
+## User Review & Critical Decisions
 
-#### Errore 1: Blocchi e fallimenti durante la generazione AI (`alert()` e rate limits)
-- **Causa individuata**:
-  - In `CoverLetterStudio.tsx`, `JobHunterModule.tsx`, `InterviewCoachModal.tsx` e `VoiceCommandModal.tsx` sono presenti chiamate native a `alert(...)` (es. `alert("Errore nella generazione con l'AI...")`). All'interno dell'iFrame della piattaforma o in molti browser moderni, `alert()` viene silenziato, bloccato dalle policy di sandbox o congela l'esecuzione JS.
-  - Se Gemini restituisce un errore temporaneo di quota (429) o uno schema non valido con il tool Search Grounding, alcuni endpoint non fornivano un fallback fluido e trasparente con messaggi informativi.
-- **Soluzione**:
-  - Rimozione completa di tutti i `window.alert()` / `alert()` nel codice sorgente e sostituzione con banner di stato e notifiche toast non bloccanti integrate nella UI.
-  - Nel backend (`server.ts`), irrobustire la catena di fallback di `callGeminiWithRetry` e `/api/job-hunter/discover`: se l'API di grounding o la quota è momentaneamente congestionata, l'app passa in automatico al fallback di generazione strutturata locale senza crash e segnala con un badge di avviso non invasivo lo stato del servizio.
-
-#### Errore 2: Problemi con il salvataggio o caricamento delle candidature
-- **Causa individuata**:
-  - In `AppContext.tsx`, la funzione di pulizia iniziale `isLegacyMockApp` conteneva controlli stringenti come `(app.company === "GitLab" && app.title.toLowerCase().includes("frontend"))` o `app.id === "app-1"`. Se un utente aggiungeva una vera candidatura per GitLab, Shopify o Bending Spoons, al ricaricamento della pagina veniva erroneamente rimossa da `localStorage`.
-  - Mancanza di gestione della quota per `localStorage.setItem` in caso di descrizioni di lavoro voluminose o allegati CV memorizzati in base64.
-  - In `JobImportModal.tsx` e `ApplicationDetailModal.tsx`, alcuni campi di compatibilità del CV (`cvMatchDetails`, `sourcePlatform`, `responsibilities`) non venivano sincronizzati bidirezionalmente quando si modificava una candidatura esistente.
-- **Soluzione**:
-  - Rimuovere la logica aggressiva di cancellazione da `AppContext.tsx`, proteggendo e conservando integralmente tutte le candidature create dall'utente.
-  - Implementare un helper di memorizzazione sicuro con compressione dei testi lunghi e gestione degli errori di quota.
-  - Assicurare che ogni creazione e aggiornamento (da Job Hunter, Job Import o Kanban) aggiorni istantaneamente lo stato `applications` e la scheda attiva.
-
-#### Errore 3: Anomalie nei tab e nel tracker
-- **Causa individuata**:
-  - In `AutoApplyModal.tsx`, l'apertura del link di candidatura utilizzava `window.open(...)`, che viene spesso bloccato dal browser all'interno di un iFrame.
-  - Nel Kanban Board, la creazione di una nuova candidatura da una colonna specifica (`handleCreateInStage`) impostava l'applicazione senza ID, ma in alcuni casi non reimpostava lo stato pulito del form in `ApplicationDetailModal`, mostrando residui della precedente candidatura aperta.
-- **Soluzione**:
-  - Sostituire le azioni di reindirizzamento con link sicuri `target="_blank" rel="noopener noreferrer"`.
-  - Resettare correttamente lo stato in `ApplicationDetailModal` quando si apre una nuova candidatura da zero, garantendo il passaggio fluido tra Kanban, Job Hunter, Studio Lettera e Coach Colloqui.
+> [!IMPORTANT]
+> **Decisioni Chiave Confermate nella Fase di Chiarimento**:
+> - **Interfaccia Copilot Unificata**: Assistente flottante / drawer intelligente con selettore di contesto ("Job Hunter Conversazionale", "Consulente Candidature & CV", "Simulatore Colloqui", "Guida App").
+> - **Radar Multi-Portale & ATS Diretti**: Ricerca potenziata su portali aggregatori (LinkedIn, Indeed, Glassdoor, Wellfound, Monster) e interrogazione profonda di pagine Careers aziendali ufficiali e sistemi ATS (Greenhouse, Lever, Workday, SmartRecruiters, Google Jobs Grounding).
+> - **Schede Interattive in Chat**: Le posizioni individuate durante la conversazione con Gemini appaiono con card interattive dotate di badge di matching, URL diretto verificato e pulsanti 1-click: *"Salva in Kanban"*, *"Adatta CV"*, *"Genera Lettera"*, *"Apri Offerta"*.
 
 ---
 
-## 2. File Modificati e Architettura
+## 1. Overview & Core Concept
 
-1. **`src/types/index.ts`**:
-   - Espansione dell'interfaccia `JobHunterPreferences` con `languageFilter`, `minSalary`, `industrySector`, `companySize`, `publishFreshness`, `seniorityLevel`.
-   - Aggiunta di questi campi e dei relativi metadati nelle offerte scoperte `DiscoveredJobOffer`.
+### Cos'è
+Un potenziamento a doppio livello di CareerFlow AI:
+1. **Motore di Ricerca Profondo per Job Hunter**: Supera la scansione standard unendo Google Search Grounding su query mirate di assunzione, aggregazione di board specializzate e interrogazione dei percorsi Careers ufficiali delle aziende (con identificazione di portali ATS reali come Greenhouse, Lever, Workday, SmartRecruiters, BambooHR).
+2. **Gemini Career Copilot**: Una chat intelligente integrata e persistente accessibile da qualunque schermata (con pulsante dock / scorciatoia dedicata) che comprende il contesto attuale dell'utente e il suo profilo. Permette di:
+   - Specificare requisiti in linguaggio naturale (es. *"Cercami ruoli da Senior Full-Stack o Tech Lead a Milano o full remote, sopra i 55k, in aziende prodotto SaaS o fintech"*).
+   - Ricevere offerte con schede interattive direttamente nello stream della chat.
+   - Chiedere consigli strategici su come valorizzare il CV per una specifica offerta.
+   - Ricevere risposte mirate sullo stato delle proprie candidature nel Kanban.
 
-2. **`server.ts`**:
-   - Aggiornamento dell'endpoint `/api/job-hunter/discover` per integrare i filtri avanzati nel prompt, nelle query di Google Search Grounding e nello schema di risposta.
-   - Irrobustimento del meccanismo di retry e fallback per eliminare errori non gestiti (429/400/500).
-
-3. **`src/context/AppContext.tsx`**:
-   - Correzione della logica di persistenza per evitare la perdita di candidature al refresh della pagina.
-   - Aggiunta di un sistema di notifiche toast globale (success/error/info) accessibile tramite hook per sostituire tutti gli `alert()`.
-
-4. **`src/components/JobHunterModule.tsx`**:
-   - Nuovo pannello comprimibile "Filtri Avanzati di Ricerca" con selettori eleganti per Lingua, RAL minima, Settore, Dimensione azienda, Freschezza e Seniority.
-   - Sostituzione di ogni `alert()` con notifiche visive contestuali.
-   - Aggiornamento dei badge e delle schede annuncio per mostrare lingua, settore e range salariale stimato.
-
-5. **`src/components/ApplicationDetailModal.tsx` & `src/components/KanbanBoard.tsx`**:
-   - Correzione del reset form e salvataggio delle nuove candidature create da colonne del Kanban.
-   - Verifica della coerenza di tutti i campi salvati.
-
-6. **`src/components/CoverLetterStudio.tsx`, `AutoApplyModal.tsx`, `InterviewCoachModal.tsx`**:
-   - Rimozione di `window.alert()` e `window.open()` per piena compatibilità con l'ambiente sandbox/iFrame.
-   - Integrazione delle notifiche toast e gestione trasparente degli errori AI.
+### Valore per il Candidato
+Elimina la fatica di navigare decine di schede browser: l'AI scandaglia sia i grandi portali che i siti aziendali primari, filtra in base al CV reale e consente di gestire tutto (dalla scoperta all'invio) in una conversazione fluida.
 
 ---
 
-## 3. Piano di Verifica e Collaudo
+## 2. User Experience & Visual Design
 
-1. **Collaudo Ricerca Avanzata**:
-   - Testare la ricerca con filtri specifici (es. Lingua "Italiano" + RAL "> €40.000" + Settore "SaaS").
-   - Verificare che i risultati e le fonti web riflettano i vincoli impostati.
-2. **Collaudo Salvataggio & Persistenza**:
-   - Creare una candidatura sia da Job Hunter sia dal pulsante "+ Nuova Candidatura" del Kanban.
-   - Ricaricare la pagina o navigare tra i tab e verificare che i dati persistano intatti al 100%.
-3. **Collaudo UI e Nessun Blocco**:
-   - Eseguire azioni che prima potevano scatenare errori (generazione cover letter senza connessione, salvataggio documento) e verificare l'assenza di `alert()` nativi, con messaggi toast chiari e pulsanti di retry.
-4. **Verifica Build**:
-   - Esecuzione di `lint_applet` e `compile_applet` per assicurare zero errori di compilazione e TypeScript.
+### Flussi Utente Principali
+
+1. **Flusso Ricerca Conversazionale (Job Hunter Copilot)**:
+   - L'utente apre il Copilot o si trova nel tab *Job Hunter*.
+   - Scrive in chat: *"Trovami posizioni aperte per Product Designer o Design System Lead in Francia o Monaco, con focus luxury o tech"*.
+   - Il Copilot elabora la richiesta, attiva la ricerca multi-fonte e restituisce un'analisi qualitativa accompagnata da una griglia/lista di **schede offerta interattive**.
+   - Da ogni scheda in chat, l'utente può cliccare:
+     - 📌 **Aggiungi a Kanban**: crea subito una candidatura nello stage "Desiderate / Da Inviare".
+     - ⚡ **Adatta CV**: pre-compila lo strumento Documents Vault per quella posizione.
+     - ✉️ **Crea Lettera**: apre lo Studio Cover Letter con la descrizione del lavoro già iniettata.
+     - 🔗 **Apri Annuncio**: apre l'URL ufficiale verificato in una nuova scheda.
+
+2. **Flusso Copilot Globale Contestuale**:
+   - Se l'utente si trova nel tab *Kanban*, il Copilot offre suggerimenti sulle scadenze dei follow-up e sullo stato delle trattative.
+   - Se si trova in *Documents Vault*, analizza il tasso di ATS match del CV e suggerisce integrazioni di competenze.
+   - Se si trova in *Coach Colloqui*, prepara a domande situazionali e simulazioni STAR.
+
+### Identità Visiva & Design System (SaaS Dashboard & Executive Dock)
+- **Posizionamento Dock**: Pulsante flottante elegante in basso a destra (con icona Sparkles / Chat e scorciatoia rapida `Cmd/Ctrl + K`), espandibile in un drawer laterale pulito da 420px (o modal responsive su mobile).
+- **Gerarchia Tipografica**: Titoli in display sans contemporaneo (`Plus Jakarta Sans` / `Outfit`), corpo compatto a 13px-14px, e cifre salariali con numeri tabulari (`font-mono tabular-nums`).
+- **Disciplina Anti-Slop**:
+  - Nessuna pillola statica colorata non necessaria o decorazioni fittizie: metadata discreti separati da interpunzioni (`·`).
+  - Card di offerta in chat con contorno hairline (`border border-stone-200 dark:border-stone-800`), contrasto WCAG AA e pulsanti d'azione chiari con verbi espliciti.
+  - Indicatore di digitazione sobrio con skeleton loader realistico durante la ricerca web o la generazione.
+
+---
+
+## 3. Decisioni di Prodotto & Scelte Architetturali
+
+### Decisione 1: Architettura di Scansione ATS & Pagine Careers
+- **Approccio Scelto**: Combinare nel backend (`/api/job-hunter/deep-scan` e `/api/copilot/chat`) query intelligenti con Google Search Grounding specializzate su domini ATS noti (`site:boards.greenhouse.io`, `site:jobs.lever.co`, `site:myworkdayjobs.com`, `site:smartrecruiters.com`, oltre a portali ufficiali) e scraping strutturato.
+- **Perché**: Gli aggregatori spesso contengono annunci scaduti o ripubblicati da terzi; puntare direttamente sui sistemi ATS garantisce che l'offerta sia autentica e attiva.
+
+### Decisione 2: Gestione dello Stato e Azioni Dirette dalla Chat
+- **Approccio Scelto**: Risposta strutturata JSON dal server per le offerte trovate con fallback markdown, e rendering dei componenti React `InteractiveJobCard` direttamente dentro il feed messaggi. I bottoni d'azione interagiscono direttamente con `AppContext` (`addApplication`, `setSelectedApplicationId`, `setActiveTab`).
+- **Perché**: Consente un'esperienza fluida a zero attrito: l'utente non deve copiare e incollare testo dalla chat ad altre sezioni dell'app.
+
+### Decisione 3: Prompt Engineering e Memoria della Sessione
+- **Approccio Scelto**: Mantenimento della cronologia conversazione sul client con invio contestuale a Gemini 3.8 Flash (`contents: [...]`) e iniezione nel system instruction del profilo candidato (`userProfile`), del CV e delle candidature correnti.
+- **Perché**: Permette al Copilot di ricordare chi è il candidato, quali competenze possiede e quali candidature ha già salvato, evitando duplicati.
+
+---
+
+## 4. Architettura Tecnica & Diagramma di Sistema
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                             CLIENT REACT APP                                │
+├───────────────────────────────────────┬─────────────────────────────────────┤
+│             Main Views                │         Career Copilot Dock         │
+│  • Kanban Board                       │  • Modalità Job Hunter              │
+│  • Job Hunter Radar                   │  • Modalità CV & Applicazioni       │
+│  • Documents Vault (CV Tailor)        │  • Modalità Coach & Strategia       │
+│  • Cover Letter Studio                │  • Rich Chat Feed con Interactive   │
+│  • Interview Coach                    │    Job Cards (1-Click Actions)      │
+└───────────────────▲───────────────────┴──────────────────▲──────────────────┘
+                    │                                      │
+                    │         AppContext (Global State)    │
+                    │   applications, profile, documents   │
+                    └───────────────────┬──────────────────┘
+                                        │
+                                        ▼ API Calls
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            SERVER EXPRESS API                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  POST /api/copilot/chat                                                     │
+│   • Riceve cronologia messaggi, query dell'utente e contesto app            │
+│   • Se la richiesta è di ricerca lavoro: esegue Google Search Grounding     │
+│     su aggregatori e ATS aziendali (Greenhouse, Lever, Workday)             │
+│   • Estrae oggetti offerta verificati con matching CV                       │
+│                                                                             │
+│  POST /api/job-hunter/discover (Deep Radar Mode)                            │
+│   • Integrazione filtri avanzati + query mirate "Careers / Lavora con noi"  │
+│   • Ritorna array arricchito di offerte verificate                          │
+│                                                                             │
+│  Gemini SDK: @google/genai (Modello: gemini-3.8-flash)                      │
+│   • Function Calling / Structured Schema output per schede lavoro           │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Flusso Dati & Mappatura Componenti
+1. `CareerCopilotDrawer.tsx`: Componente flottante comprimibile/espandibile, con pillole di prompt rapido ("Trova lavori affini al mio CV", "Cerca aziende con Greenhouse/Lever", "Consigli per il colloquio").
+2. `InteractiveJobCard.tsx`: Card dedicata resa inline nei messaggi del bot, con titolo, azienda, location, badge match score calcolato, stipendio stimato, link verified e bottoni operativi collegati ad `AppContext`.
+3. `server.ts`: Nuovo endpoint `/api/copilot/chat` con `gemini-3.8-flash`, tool `googleSearch` abilitato quando l'intento è la ricerca di offerte di lavoro, e schema per restituire sia il testo di risposta sia la lista di `jobs` strutturati.

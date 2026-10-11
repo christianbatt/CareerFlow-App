@@ -1,6 +1,6 @@
 {
-  "summary":  "Piano di implementazione per espandere i parametri di ricerca di Job Hunter AI (filtri per lingua, range salariale/RAL, settore industriale, dimensione aziendale, freschezza/data annuncio e seniority) e per correggere gli errori dell'app (eliminazione dei blocchi alert() in iFrame, fix sul caricamento e salvataggio candidature in AppContext, e stabilizzazione della navigazione nei tab e tracker).",
-  "updatedAt":  "2026-10-09T22:12:48.199275149Z",
+  "summary":  "Piano di implementazione per la ricerca profonda multi-portale & ATS in Job Hunter AI e per l'integrazione del Gemini Career Copilot unificato con schede lavoro interattive.",
+  "updatedAt":  "2026-10-11T18:36:48.561423030Z",
   "requestFeedback":  true,
   "userFacing":  true
 }
