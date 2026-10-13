@@ -196,6 +196,7 @@ export interface DiscoveredJobOffer {
   portal:
     | "LinkedIn"
     | "Indeed"
+    | "Jobicy"
     | "RemoteOK"
     | "WeWorkRemotely"
     | "Wellfound"
@@ -271,11 +272,15 @@ export interface JobHunterPreferences {
   enableLiveSearch?: boolean;
   sourcePriority?: "all" | "portals" | "company_careers";
   languageFilter?: "any" | "it" | "en" | "bilingual" | "de" | "fr" | "es";
-  minSalary?: "any" | "30k" | "40k" | "50k" | "60k" | "80k" | "100k";
+  minSalary?: "any" | "under_30k" | "30k_45k" | "45k_60k" | "60k_85k" | "over_85k" | "30k" | "40k" | "50k" | "60k" | "80k" | "100k" | string;
   industrySector?: string;
   companySize?: "any" | "startup" | "scaleup" | "enterprise";
   publishFreshness?: "24h" | "7d" | "30d" | "any";
   resultsCount?: number;
+  excludeKeywords?: string;
+  customKeywords?: string;
+  salarySensitivity?: boolean;
+  strictRoleMatching?: boolean;
   monacoSpecificRadar?: MonacoRadarSettings;
 }
 

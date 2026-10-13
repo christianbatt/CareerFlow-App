@@ -10,11 +10,12 @@ import {
   ArrowRight,
   ShieldCheck,
   Sparkles,
+  Zap,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 
 export const InstallAppModal: React.FC = () => {
-  const { activeModal, setActiveModal } = useApp();
+  const { activeModal, setActiveModal, showToast } = useApp();
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState<boolean>(false);
   const [selectedBrowser, setSelectedBrowser] = useState<"chrome" | "edge" | "safari">("chrome");
@@ -264,6 +265,43 @@ export const InstallAppModal: React.FC = () => {
                 </div>
               </>
             )}
+          </div>
+
+          {/* Permanent URL & Offline Guarantee Insight */}
+          <div className="p-4 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/80 space-y-3">
+            <div className="flex items-start gap-2.5">
+              <Zap className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-xs font-bold text-indigo-950 dark:text-indigo-100">
+                  Perché l'app desktop necessitava di AI Studio aperto e come è stato risolto:
+                </p>
+                <p className="text-[11px] text-indigo-800/90 dark:text-indigo-300/90 leading-relaxed">
+                  L'indirizzo di sviluppo provvisorio (<code>ais-dev-...</code>) va in sospensione per risparmiare risorse quando chiudi la scheda di AI Studio. Ora abbiamo attivato la <strong>Cache Offline Permanente del Service Worker</strong>: l'app desktop memorizza tutti i componenti sul tuo PC/Mac e si apre istantaneamente anche a server spento.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-indigo-200/60 dark:border-indigo-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+              <div>
+                <span className="text-[11px] font-semibold text-stone-600 dark:text-stone-300 block">
+                  Indirizzo Web Permanente (attivo 24/7):
+                </span>
+                <span className="text-[11px] font-mono text-indigo-600 dark:text-indigo-400 select-all">
+                  https://ais-pre-5yilac2rvnfrghvzbptd37-665143262858.europe-west2.run.app
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText("https://ais-pre-5yilac2rvnfrghvzbptd37-665143262858.europe-west2.run.app");
+                  showToast("Link permanente copiato negli appunti!", "success");
+                }}
+                className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-colors shrink-0"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Copia Link Permanente</span>
+              </button>
+            </div>
           </div>
 
           {/* Data safety guarantee */}

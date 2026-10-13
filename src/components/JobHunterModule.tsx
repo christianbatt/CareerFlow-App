@@ -7,6 +7,7 @@ import {
   Check,
   CheckCircle2,
   AlertCircle,
+  X,
   TrendingUp,
   Filter,
   DollarSign,
@@ -126,6 +127,8 @@ export const JobHunterModule: React.FC = () => {
     companySize: "any",
     publishFreshness: "any",
     resultsCount: 12,
+    salarySensitivity: false,
+    strictRoleMatching: true,
   });
 
   // Saved Searches state
@@ -227,6 +230,11 @@ export const JobHunterModule: React.FC = () => {
   // CV vs Selected Job Comparison modal state
   const [comparingJob, setComparingJob] = useState<DiscoveredJobOffer | null>(null);
   const [showCompareModal, setShowCompareModal] = useState<boolean>(false);
+
+  // Live in-page results filtering & search states
+  const [searchQueryFilter, setSearchQueryFilter] = useState<string>("");
+  const [portalFilter, setPortalFilter] = useState<string>("all");
+  const [salaryQuickFilter, setSalaryQuickFilter] = useState<string>("all");
 
   // State for Existing Applications Scoring
   const [isScoringExisting, setIsScoringExisting] = useState<boolean>(false);
@@ -1443,7 +1451,7 @@ export const JobHunterModule: React.FC = () => {
                     {/* 2. RAL Minima Desiderata */}
                     <div>
                       <label className="block font-semibold text-stone-700 dark:text-stone-300 mb-1">
-                        💰 Retribuzione Minima Desiderata (RAL)
+                        💰 Retribuzione Desiderata (RAL)
                       </label>
                       <select
                         value={preferences.minSalary || "any"}
@@ -1456,6 +1464,9 @@ export const JobHunterModule: React.FC = () => {
                         className="w-full px-3 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       >
                         <option value="any">Qualsiasi range / Senza vincolo</option>
+                        <option value="under_30k">Meno di €30.000 / anno (Entry level / Stage / Junior)</option>
+                        <option value="25k_35k">€25.000 - €35.000 / anno</option>
+                        <option value="35k_50k">€35.000 - €50.000 / anno</option>
                         <option value="30k">&gt; €30.000 / anno</option>
                         <option value="40k">&gt; €40.000 / anno</option>
                         <option value="50k">&gt; €50.000 / anno</option>
@@ -1465,7 +1476,48 @@ export const JobHunterModule: React.FC = () => {
                       </select>
                     </div>
 
-                    {/* 3. Settore / Industria */}
+                    {/* 3. Ruolo Specifico Desiderato (Opzionale) */}
+                    <div>
+                      <label className="block font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                        🎯 Titolo o Ruolo Target (Opzionale)
+                      </label>
+                      <input
+                        type="text"
+                        value={preferences.roleFilter || ""}
+                        onChange={(e) =>
+                          setPreferences({
+                            ...preferences,
+                            roleFilter: e.target.value,
+                          })
+                        }
+                        placeholder="Es: Marketing Specialist, Contabile, Account Manager..."
+                        className="w-full px-3 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    {/* 4. Filtro Anti-Non Attinente (Parole da Escludere) */}
+                    <div>
+                      <label className="block font-semibold text-rose-700 dark:text-rose-400 mb-1">
+                        🚫 Parole da Escludere (Filtro Negativo)
+                      </label>
+                      <input
+                        type="text"
+                        value={preferences.excludeKeywords || ""}
+                        onChange={(e) =>
+                          setPreferences({
+                            ...preferences,
+                            excludeKeywords: e.target.value,
+                          })
+                        }
+                        placeholder="Es: contabile, disegnatore, elettricista, avvocato, software developer, boulangerie"
+                        className="w-full px-3 py-2 bg-white dark:bg-stone-800 border border-rose-200 dark:border-rose-900/60 rounded-xl text-stone-900 dark:text-stone-100 text-xs focus:outline-none focus:ring-1 focus:ring-rose-500"
+                      />
+                      <p className="text-[10px] text-stone-500 dark:text-stone-400 mt-1">
+                        Esclude all&apos;istante qualsiasi annuncio contenente questi termini nel titolo o descrizione.
+                      </p>
+                    </div>
+
+                    {/* 5. Settore / Industria */}
                     <div>
                       <label className="block font-semibold text-stone-700 dark:text-stone-300 mb-1">
                         🏷️ Settore o Industria Specifica
@@ -1481,17 +1533,19 @@ export const JobHunterModule: React.FC = () => {
                         className="w-full px-3 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       >
                         <option value="all">Tutti i settori (in base al CV)</option>
-                        <option value="SaaS & Cloud Software">SaaS & Software</option>
+                        <option value="Marketing, Media & Communication">Marketing, Media & Adv</option>
+                        <option value="Commerciale, Vendite & Business Development">Commerciale & Vendite</option>
+                        <option value="Amministrazione, Risorse Umane & Finanza">Amministrazione, HR & Finanza</option>
+                        <option value="Hospitality, Ristorazione & Turismo">Luxury Hospitality & Turismo</option>
                         <option value="FinTech & Banking">FinTech & Servizi Finanziari</option>
                         <option value="E-commerce & Retail">E-commerce, Brand & Retail</option>
-                        <option value="Consulenza & IT Services">Consulenza Direzionale & IT</option>
-                        <option value="AI & DeepTech">AI, Machine Learning & DeepTech</option>
+                        <option value="Consulenza & IT Services">Consulenza Direzionale & Servizi</option>
+                        <option value="SaaS & Cloud Software">SaaS & Software</option>
                         <option value="HealthTech & Pharma">Salute, Biotech & Pharma</option>
-                        <option value="Marketing, Media & Communication">Marketing, Media & Adv</option>
                       </select>
                     </div>
 
-                    {/* 4. Dimensione Aziendale */}
+                    {/* 6. Dimensione Aziendale */}
                     <div>
                       <label className="block font-semibold text-stone-700 dark:text-stone-300 mb-1">
                         👥 Dimensione Aziendale
@@ -1513,7 +1567,7 @@ export const JobHunterModule: React.FC = () => {
                       </select>
                     </div>
 
-                    {/* 5. Data di Pubblicazione / Freschezza */}
+                    {/* 7. Data di Pubblicazione / Freschezza */}
                     <div>
                       <label className="block font-semibold text-stone-700 dark:text-stone-300 mb-1">
                         📅 Freschezza Annuncio
@@ -1535,7 +1589,7 @@ export const JobHunterModule: React.FC = () => {
                       </select>
                     </div>
 
-                    {/* 6. Quantità Offerte da Trovare */}
+                    {/* 8. Quantità Offerte da Trovare */}
                     <div>
                       <label className="block font-semibold text-stone-700 dark:text-stone-300 mb-1">
                         🎯 Offerte da Trovare
@@ -1576,6 +1630,93 @@ export const JobHunterModule: React.FC = () => {
                       >
                         Ripristina filtri avanzati
                       </button>
+                    </div>
+                  </div>
+
+                  {/* AI Matching Precision & Salary Sensitivity Toggles */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                    {/* Salary Sensitivity Toggle */}
+                    <div className={`p-3 rounded-xl border transition-all ${
+                      preferences.salarySensitivity
+                        ? "bg-amber-50/90 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700/80 shadow-xs"
+                        : "bg-white dark:bg-stone-800/60 border-stone-200 dark:border-stone-700/80"
+                    }`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-sm">⚖️</span>
+                            <span className="font-bold text-xs text-stone-900 dark:text-stone-100">
+                              Sensibilità Salariale (Salary Sensitivity)
+                            </span>
+                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                              preferences.salarySensitivity
+                                ? "bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100"
+                                : "bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-400"
+                            }`}>
+                              {preferences.salarySensitivity ? "ATTIVA" : "OFF"}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-stone-600 dark:text-stone-400 mt-1 leading-snug">
+                            Pondera dinamicamente la ricerca e il punteggio AI per favorire le fasce di retribuzione più basse e accessibili (&lt; €30.000 / anno, entry level e junior/mid), abbattendo sovrastime artificiose.
+                          </p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(preferences.salarySensitivity)}
+                            onChange={(e) =>
+                              setPreferences({
+                                ...preferences,
+                                salarySensitivity: e.target.checked,
+                              })
+                            }
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-stone-300 peer-focus:outline-none rounded-full peer dark:bg-stone-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-stone-600 peer-checked:bg-amber-600"></div>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Strict Role-Based Matching Toggle */}
+                    <div className={`p-3 rounded-xl border transition-all ${
+                      preferences.strictRoleMatching !== false
+                        ? "bg-indigo-50/90 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-700/80 shadow-xs"
+                        : "bg-white dark:bg-stone-800/60 border-stone-200 dark:border-stone-700/80"
+                    }`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-sm">🎯</span>
+                            <span className="font-bold text-xs text-stone-900 dark:text-stone-100">
+                              Strict Role Matching (Vincolo Stretto al CV)
+                            </span>
+                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                              preferences.strictRoleMatching !== false
+                                ? "bg-indigo-200 dark:bg-indigo-800 text-indigo-900 dark:text-indigo-100"
+                                : "bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-400"
+                            }`}>
+                              {preferences.strictRoleMatching !== false ? "ATTIVA" : "OFF"}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-stone-600 dark:text-stone-400 mt-1 leading-snug">
+                            Vincola l&apos;AI a proporre solo ruoli direttamente attinenti al profilo professionale e alle mansioni del tuo CV caricato, eliminando mestieri e professioni estranee.
+                          </p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                          <input
+                            type="checkbox"
+                            checked={preferences.strictRoleMatching !== false}
+                            onChange={(e) =>
+                              setPreferences({
+                                ...preferences,
+                                strictRoleMatching: e.target.checked,
+                              })
+                            }
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-stone-300 peer-focus:outline-none rounded-full peer dark:bg-stone-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-stone-600 peer-checked:bg-indigo-600"></div>
+                        </label>
+                      </div>
                     </div>
                   </div>
 
@@ -1744,23 +1885,253 @@ export const JobHunterModule: React.FC = () => {
             </div>
           )}
 
-          {/* Results Count, Pagination Status & Controls */}
+          {/* Results Count, In-page Search, External Portals Deep Search & Controls */}
           {(() => {
-            const totalPages = Math.max(1, Math.ceil(discoveredJobs.length / jobsPerPage));
+            const filteredJobs = discoveredJobs.filter((job) => {
+              if (searchQueryFilter.trim()) {
+                const q = searchQueryFilter.toLowerCase();
+                const matches =
+                  job.title.toLowerCase().includes(q) ||
+                  job.company.toLowerCase().includes(q) ||
+                  job.description.toLowerCase().includes(q) ||
+                  (job.matchedSkills || []).some((s) => s.toLowerCase().includes(q));
+                if (!matches) return false;
+              }
+              if (portalFilter !== "all" && job.portal !== portalFilter) {
+                return false;
+              }
+              if (salaryQuickFilter !== "all") {
+                const sal = (job.salary || "").toLowerCase();
+                const cleaned = sal.replace(/\./g, "").replace(/,/g, ".");
+                const nums = (cleaned.match(/\d{4,6}/g) || []).map((n) => parseInt(n, 10));
+                const minVal = nums.length > 0 ? nums[0] : 0;
+                const maxVal = nums.length > 1 ? nums[1] : (nums.length > 0 ? nums[0] : 0);
+
+                if (salaryQuickFilter === "under_30k") {
+                  const isUnder =
+                    (minVal > 0 && minVal <= 30000) ||
+                    sal.includes("junior") ||
+                    sal.includes("entry") ||
+                    sal.includes("stage") ||
+                    sal.includes("meno di 30");
+                  if (!isUnder) return false;
+                } else if (salaryQuickFilter === "25k_35k") {
+                  const isMatch = (minVal <= 35000 && maxVal >= 24000) || sal.includes("junior/mid");
+                  if (!isMatch) return false;
+                } else if (salaryQuickFilter === "35k_50k") {
+                  const isMatch = (minVal <= 50000 && maxVal >= 34000) || sal.includes("mid/senior");
+                  if (!isMatch) return false;
+                } else if (salaryQuickFilter === "over_50k") {
+                  const isHigh =
+                    maxVal >= 50000 ||
+                    minVal >= 50000 ||
+                    sal.includes("executive") ||
+                    sal.includes("senior/lead");
+                  if (!isHigh) return false;
+                }
+              }
+              return true;
+            })
+            .sort((a, b) => {
+              // If Salary Sensitivity is enabled, dynamically prioritize and weight lower/accessible salary ranges
+              if (preferences.salarySensitivity) {
+                const cleanA = (a.salary || "").toLowerCase().replace(/\./g, "");
+                const cleanB = (b.salary || "").toLowerCase().replace(/\./g, "");
+                const numA = parseInt((cleanA.match(/\d{4,6}/g) || ["40000"])[0], 10);
+                const numB = parseInt((cleanB.match(/\d{4,6}/g) || ["40000"])[0], 10);
+                const scoreA = numA <= 32000 ? -50 : (numA <= 42000 ? 0 : 50);
+                const scoreB = numB <= 32000 ? -50 : (numB <= 42000 ? 0 : 50);
+                if (scoreA !== scoreB) return scoreA - scoreB;
+              }
+              return (b.matchScore || 0) - (a.matchScore || 0);
+            });
+
+            const totalPages = Math.max(1, Math.ceil(filteredJobs.length / jobsPerPage));
             const startIndex = (currentPage - 1) * jobsPerPage;
-            const paginatedJobs = discoveredJobs.slice(startIndex, startIndex + jobsPerPage);
+            const paginatedJobs = filteredJobs.slice(startIndex, startIndex + jobsPerPage);
+
+            const effectiveQueryRole = preferences.roleFilter || cvSummary?.extractedProfile || "Posizione Professionale";
+            const effectiveLocation = preferences.location || "Italia";
 
             return (
               <>
+                {/* 1-Click Multi-Source Deep Search Launcher Bar */}
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-stone-900 via-indigo-950 to-stone-900 text-white shadow-md border border-indigo-900/50 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-cyan-400" />
+                      <span className="text-xs font-bold tracking-wide">
+                        Ricerca Profonda Multi-Portale Esterno
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                        1-Click Live
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-stone-300 mt-0.5">
+                      Apri direttamente le posizioni attinenti al tuo CV su Indeed, LinkedIn, Jobicy e Portali Monaco:
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <a
+                      href={`https://it.indeed.com/jobs?q=${encodeURIComponent(effectiveQueryRole)}&l=${encodeURIComponent(effectiveLocation)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold transition-all shadow-sm flex items-center gap-1.5"
+                      title="Cerca su Indeed con profilo e filtri del tuo CV"
+                    >
+                      <span>Indeed</span>
+                      <ExternalLink className="w-3 h-3 opacity-80" />
+                    </a>
+
+                    <a
+                      href={`https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(effectiveQueryRole)}&location=${encodeURIComponent(effectiveLocation)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-1.5 rounded-xl bg-sky-700 hover:bg-sky-600 text-white text-[11px] font-bold transition-all shadow-sm flex items-center gap-1.5"
+                      title="Cerca su LinkedIn Jobs con profilo e filtri del tuo CV"
+                    >
+                      <span>LinkedIn</span>
+                      <ExternalLink className="w-3 h-3 opacity-80" />
+                    </a>
+
+                    <a
+                      href={`https://jobicy.com/jobs?q=${encodeURIComponent(effectiveQueryRole)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold transition-all shadow-sm flex items-center gap-1.5"
+                      title="Cerca posizioni remote su Jobicy"
+                    >
+                      <span>Jobicy</span>
+                      <ExternalLink className="w-3 h-3 opacity-80" />
+                    </a>
+
+                    <a
+                      href={`https://www.google.com/search?q=${encodeURIComponent(`${effectiveQueryRole} ${effectiveLocation} offerte lavoro posizioni aperte`)}&ibp=htl;jobs`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-all border border-white/20 flex items-center gap-1.5"
+                      title="Cerca su Google Jobs aggregatore"
+                    >
+                      <span>Google Jobs</span>
+                      <ExternalLink className="w-3 h-3 opacity-80" />
+                    </a>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowMonacoDirectoryModal(true)}
+                      className="px-2.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold transition-all shadow-sm flex items-center gap-1.5"
+                      title="Apri radar e directory ufficiale Principato di Monaco"
+                    >
+                      <Crown className="w-3 h-3 text-amber-300" />
+                      <span>Portali Monaco</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* In-Page Quick Filters & Search Toolbar */}
+                <div className="p-3 rounded-2xl bg-stone-50 dark:bg-stone-900/60 border border-stone-200 dark:border-stone-800 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 text-xs">
+                  <div className="flex-1 flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Search className="w-4 h-4 text-stone-400 absolute left-3 top-2.5" />
+                      <input
+                        type="text"
+                        value={searchQueryFilter}
+                        onChange={(e) => {
+                          setSearchQueryFilter(e.target.value);
+                          setCurrentPage(1);
+                        }}
+                        placeholder="Filtra tra le offerte per titolo, azienda o competenza..."
+                        className="w-full pl-9 pr-8 py-1.5 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-stone-900 dark:text-stone-100 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                      {searchQueryFilter && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchQueryFilter("")}
+                          className="absolute right-2.5 top-2.5 text-stone-400 hover:text-stone-600"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Filter by Portal */}
+                    <select
+                      value={portalFilter}
+                      onChange={(e) => {
+                        setPortalFilter(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-xs font-medium text-stone-800 dark:text-stone-200 focus:outline-none"
+                    >
+                      <option value="all">Tutti i portali ({discoveredJobs.length})</option>
+                      <option value="Indeed">Indeed</option>
+                      <option value="LinkedIn">LinkedIn</option>
+                      <option value="Jobicy">Jobicy</option>
+                      <option value="RemoteOK">RemoteOK</option>
+                      <option value="MonteCarloWork">MonteCarloWork</option>
+                      <option value="EmploiMonaco">Emploi-Monaco</option>
+                      <option value="SBM">SBM Monaco</option>
+                      <option value="GouvMonaco">Gouv Monaco</option>
+                      <option value="CompanyCareers">Carriere Dirette</option>
+                    </select>
+
+                    {/* Filter by Salary Bracket */}
+                    <select
+                      value={salaryQuickFilter}
+                      onChange={(e) => {
+                        setSalaryQuickFilter(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="px-2.5 py-1.5 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl text-xs font-medium text-stone-800 dark:text-stone-200 focus:outline-none"
+                    >
+                      <option value="all">Tutte le retribuzioni</option>
+                      <option value="under_30k">&lt; €30.000 / anno (Entry / Junior)</option>
+                      <option value="25k_35k">€25.000 - €35.000 / anno (Junior / Mid)</option>
+                      <option value="35k_50k">€35.000 - €50.000 / anno (Mid / Senior)</option>
+                      <option value="over_50k">&gt; €50.000 / anno (Senior / Lead / Executive)</option>
+                    </select>
+
+                    {/* Salary Sensitivity Fast Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreferences((prev) => ({
+                          ...prev,
+                          salarySensitivity: !prev.salarySensitivity,
+                        }));
+                        setCurrentPage(1);
+                      }}
+                      className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all border flex items-center gap-1.5 cursor-pointer ${
+                        preferences.salarySensitivity
+                          ? "bg-amber-100 dark:bg-amber-950/70 border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 shadow-xs"
+                          : "bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-700"
+                      }`}
+                      title="Attiva/disattiva Sensibilità Salariale per ponderare in primo piano le fasce più accessibili (< 30k / entry-mid)"
+                    >
+                      <span>⚖️</span>
+                      <span>Sensibilità Salariale</span>
+                      {preferences.salarySensitivity ? (
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500 text-white">ON</span>
+                      ) : (
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-400">OFF</span>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Results Count, Pagination Status & Controls */}
                 <div
                   id="job-results-container"
                   className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-stone-500 pt-1 pb-2 border-b border-stone-200 dark:border-stone-800"
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <span>
-                      Trovate <strong className="text-stone-900 dark:text-stone-100">{discoveredJobs.length}</strong> offerte 100% reali
+                      Mostrate <strong className="text-stone-900 dark:text-stone-100">{filteredJobs.length}</strong> di {discoveredJobs.length} offerte pertinenti
                     </span>
-                    {discoveredJobs.length > 0 && (
+                    {filteredJobs.length > 0 && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-semibold text-[11px] border border-emerald-200 dark:border-emerald-800">
                         <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
                         <span>Verificate Live</span>
@@ -1779,7 +2150,7 @@ export const JobHunterModule: React.FC = () => {
                     </label>
                   </div>
 
-                  {discoveredJobs.length > 0 && (
+                  {filteredJobs.length > 0 && (
                     <div className="flex flex-wrap items-center gap-3">
                       <span className="text-[11px] text-stone-600 dark:text-stone-400">
                         Pagina <strong className="text-stone-900 dark:text-stone-100">{currentPage}</strong> di {totalPages}
@@ -1799,7 +2170,7 @@ export const JobHunterModule: React.FC = () => {
                           <option value={6}>6</option>
                           <option value={8}>8</option>
                           <option value={12}>12</option>
-                          <option value={24}>Tutte ({discoveredJobs.length})</option>
+                          <option value={24}>Tutte ({filteredJobs.length})</option>
                         </select>
                       </div>
 
@@ -2311,12 +2682,12 @@ export const JobHunterModule: React.FC = () => {
                 </div>
 
                 {/* Bottom Pagination Controls */}
-                {discoveredJobs.length > 0 && totalPages > 1 && (
+                {filteredJobs.length > 0 && totalPages > 1 && (
                   <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-stone-200 dark:border-stone-800">
                     <span className="text-xs text-stone-500">
                       Mostrando da <strong>{startIndex + 1}</strong> a{" "}
-                      <strong>{Math.min(startIndex + jobsPerPage, discoveredJobs.length)}</strong> di{" "}
-                      <strong>{discoveredJobs.length}</strong> offerte
+                      <strong>{Math.min(startIndex + jobsPerPage, filteredJobs.length)}</strong> di{" "}
+                      <strong>{filteredJobs.length}</strong> offerte
                     </span>
 
                     <div className="flex flex-wrap items-center gap-1.5">
